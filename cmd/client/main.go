@@ -3,7 +3,7 @@ package main
 import (
 	"archive/zip"
 	"embedup-go/configs/config"
-	apiClient "embedup-go/internal/apic"
+	apiClient "embedup-go/internal/apiclient"
 	"embedup-go/internal/cstmerr"
 	"fmt"
 	"io"
