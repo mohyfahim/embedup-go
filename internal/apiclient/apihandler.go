@@ -3,6 +3,7 @@ package apiclient
 import (
 	"embedup-go/configs/config"
 	"embedup-go/internal/cstmerr"
+	sharedModels "embedup-go/internal/shared"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,10 @@ import (
 	"strconv"
 	"strings"
 )
+
+type UpdateInfo = sharedModels.UpdateInfo
+type UpdateErr = sharedModels.UpdateErr
+type StatusReportPayload = sharedModels.StatusReportPayload
 
 // APIClient holds the HTTP client and configuration.
 type APIClient struct {
@@ -56,7 +61,7 @@ func (ac *APIClient) CheckForUpdates() (*UpdateInfo, error) {
 	}
 
 	if resp.IsError() { // Check for HTTP status codes >= 400
-		log.Printf("Update check API request failed with status %s: %s", resp.StatusCode, apiErr.Message)
+		log.Printf("Update check API request failed with status %d: %s", resp.StatusCode, apiErr.Message)
 		// If apiErr.Message is empty, use raw body
 		errMsg := apiErr.Message
 		if errMsg == "" {
