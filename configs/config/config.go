@@ -6,24 +6,38 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	// Still useful for GetCurrentVersion
 	"github.com/spf13/viper" // Import Viper
 )
 
+// DatabaseConfig holds all database connection parameters.
+type DatabaseConfig struct {
+	Host         string        `mapstructure:"db_host"`
+	Port         int           `mapstructure:"db_port"`
+	User         string        `mapstructure:"db_user"`
+	Password     string        `mapstructure:"db_password_conf"` // Renamed to avoid conflict with existing DBPassword
+	DBName       string        `mapstructure:"db_name"`
+	SSLMode      string        `mapstructure:"db_sslmode"`
+	ReadTimeout  time.Duration `mapstructure:"db_read_timeout"`  // Example advanced option
+	WriteTimeout time.Duration `mapstructure:"db_write_timeout"` // Example advanced option
+}
+
 // Config matches the structure of your config file and environment variables.
 // Viper uses mapstructure tags by default, but you can customize them.
 type Config struct {
-	ServiceName         string `mapstructure:"service_name"`
-	CurrentVersionFile  string `mapstructure:"current_version_file"`
-	UpdateCheckAPIURL   string `mapstructure:"update_check_api_url"`
-	StatusReportAPIURL  string `mapstructure:"status_report_api_url"`
-	PollIntervalSeconds uint64 `mapstructure:"poll_interval_seconds"`
-	DownloadBaseDir     string `mapstructure:"download_base_dir"`
-	DecryptionKeyHex    string `mapstructure:"decryption_key_hex"` // Kept for completeness
-	UpdateScriptName    string `mapstructure:"update_script_name"`
-	DBPassword          string `mapstructure:"db_password"`
-	DeviceToken         string `mapstructure:"device_token"`
+	ServiceName         string         `mapstructure:"service_name"`
+	CurrentVersionFile  string         `mapstructure:"current_version_file"`
+	UpdateCheckAPIURL   string         `mapstructure:"update_check_api_url"`
+	StatusReportAPIURL  string         `mapstructure:"status_report_api_url"`
+	PollIntervalSeconds uint64         `mapstructure:"poll_interval_seconds"`
+	DownloadBaseDir     string         `mapstructure:"download_base_dir"`
+	DecryptionKeyHex    string         `mapstructure:"decryption_key_hex"`
+	UpdateScriptName    string         `mapstructure:"update_script_name"`
+	DBPassword          string         `mapstructure:"db_password"`
+	DeviceToken         string         `mapstructure:"device_token"`
+	Database            DatabaseConfig `mapstructure:"database"`
 }
 
 // Load reads the configuration using Viper.
@@ -31,6 +45,15 @@ type Config struct {
 // and can also read from environment variables.
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
+
+	// Set default values for database config
+	v.SetDefault("database.db_host", "localhost")
+	v.SetDefault("database.db_port", 5432)
+	v.SetDefault("database.db_user", "postgres")
+	v.SetDefault("database.db_name", "podbox")
+	v.SetDefault("database.db_sslmode", "disable") // Common default for local dev
+	v.SetDefault("database.db_read_timeout", "5s")
+	v.SetDefault("database.db_write_timeout", "5s")
 
 	// Set default values (optional, but good practice)
 	v.SetDefault("service_name", "PodboxUpdateService")

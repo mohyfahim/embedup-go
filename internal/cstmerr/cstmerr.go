@@ -139,6 +139,40 @@ func NewFileIOError(msg string, underlyingErr error) *FileIOError {
 	return &FileIOError{BaseError{Msg: "I/O error during file operation: " + msg, Err: underlyingErr}}
 }
 
+type DBError struct{ BaseError }
+
+func NewDBError(msg string, underlyingErr error) *DBError {
+	return &DBError{BaseError{Msg: "Database error: " + msg, Err: underlyingErr}}
+}
+
+// DBConnectionError indicates a problem connecting to the database.
+type DBConnectionError struct{ BaseError }
+
+func NewDBConnectionError(msg string, underlyingErr error) *DBConnectionError {
+	return &DBConnectionError{BaseError{Msg: "DB connection error: " + msg, Err: underlyingErr}}
+}
+
+// DBQueryError indicates a problem executing a database query.
+type DBQueryError struct{ BaseError }
+
+func NewDBQueryError(msg string, underlyingErr error) *DBQueryError {
+	return &DBQueryError{BaseError{Msg: "DB query error: " + msg, Err: underlyingErr}}
+}
+
+// DBNotFoundError indicates that a query returned no results when at least one was expected.
+type DBNotFoundError struct{ BaseError }
+
+func NewDBNotFoundError(msg string, underlyingErr error) *DBNotFoundError {
+	return &DBNotFoundError{BaseError{Msg: "DB not found error: " + msg, Err: underlyingErr}}
+}
+
+// DBTransactionError indicates an issue with a database transaction.
+type DBTransactionError struct{ BaseError }
+
+func NewDBTransactionError(msg string, underlyingErr error) *DBTransactionError {
+	return &DBTransactionError{BaseError{Msg: "DB transaction error: " + msg, Err: underlyingErr}}
+}
+
 // TempFileError (if you use temporary files)
 // type TempFileError struct{ BaseError }
 // func NewTempFileError(msg string, underlyingErr error) *TempFileError { ... }
