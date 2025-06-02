@@ -3,7 +3,8 @@ package apiclient
 import (
 	"embedup-go/configs/config"
 	"embedup-go/internal/cstmerr"
-	sharedModels "embedup-go/internal/shared"
+	SharedModels "embedup-go/internal/shared"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -14,9 +15,9 @@ import (
 	"strings"
 )
 
-type UpdateInfo = sharedModels.UpdateInfo
-type UpdateErr = sharedModels.UpdateErr
-type StatusReportPayload = sharedModels.StatusReportPayload
+type UpdateInfo = SharedModels.UpdateInfo
+type UpdateErr = SharedModels.UpdateErr
+type StatusReportPayload = SharedModels.StatusReportPayload
 
 // APIClient holds the HTTP client and configuration.
 type APIClient struct {
@@ -224,4 +225,257 @@ func (ac *APIClient) ReportStatus(versionCode int, statusMessage string) error {
 
 	log.Println("Status report successful")
 	return nil
+}
+
+// FetchContentUpdates fetches content changes from the server.
+func (ac *APIClient) FetchContentUpdates(
+	params SharedModels.ContentUpdateRequestParams) (*SharedModels.ContentUpdateResponse,
+	[]SharedModels.ProcessedContentSchema, error) {
+	log.Printf("Fetching content updates from: %s with params: %+v\n",
+		ac.config.ContentUpdateAPIURL, params)
+
+	var contentResp SharedModels.ContentUpdateResponse
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	queryParams := map[string]string{
+		"from":   strconv.FormatInt(params.From, 10),
+		"size":   strconv.Itoa(params.Size),
+		"offset": strconv.Itoa(params.Offset),
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		QueryParams:   queryParams,
+		SuccessResult: &contentResp, // Resty/HTTPClient adapter should unmarshal into this
+		ErrorResult:   &apiErr,
+	}
+
+	resp, err := ac.client.Get(ac.config.ContentUpdateAPIURL, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return nil, nil, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return nil, nil, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return nil, nil, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	// TODO: handle empty contents array
+	if len(contentResp.Contents) == 0 && len(resp.Body) > 0 { // Check if unmarshalling might have been skipped by adapter
+		if err := json.Unmarshal(resp.Body, &contentResp); err != nil {
+			log.Printf("Failed to unmarshal content update response body: %v. Body: %s", err, string(resp.Body))
+			return nil, nil, cstmerr.NewAPIClientError(fmt.Errorf("failed to unmarshal response: %w", err))
+		}
+	}
+
+	log.Printf("Received content update response. Count: %d, Items: %d", contentResp.Count, len(contentResp.Contents))
+
+	var processedItems []SharedModels.ProcessedContentSchema
+	for _, item := range contentResp.Contents {
+		var specificContent any
+		var parseErr error
+		log.Printf("Processing content item ID: %d, Type: %s, UpdatedAt: %d, Enabled: %t",
+			item.ID, item.Type, item.UpdatedAt, item.Enable)
+		switch item.Type {
+		case "local-advertisement":
+			var adContent SharedModels.LocalAdvertisementSchema
+			if err := json.Unmarshal(item.Content, &adContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-advertisement' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = adContent
+			}
+		case "local-page":
+			var pageContent SharedModels.LocalPageSchema
+			if err := json.Unmarshal(item.Content, &pageContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-page' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = pageContent
+			}
+		case "local-movie":
+			var movieContent SharedModels.LocalMovieSchema
+			if err := json.Unmarshal(item.Content, &movieContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-movie' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = movieContent
+			}
+		case "local-section":
+			var sectionContent SharedModels.LocalSectionSchema
+			if err := json.Unmarshal(item.Content, &sectionContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-section' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = sectionContent
+			}
+		case "local-series":
+			var seriesContent SharedModels.LocalSeriesSchema
+			if err := json.Unmarshal(item.Content, &seriesContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-series' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = seriesContent
+			}
+		case "local-series-episode":
+			var episodeContent SharedModels.LocalSeriesEpisodeSchema
+			if err := json.Unmarshal(item.Content, &episodeContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-series-episode' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = episodeContent
+			}
+		case "local-series-season":
+			var seasonContent SharedModels.LocalSeriesSeasonSchema
+			if err := json.Unmarshal(item.Content, &seasonContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-series-season' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = seasonContent
+			}
+		case "local-slider":
+			var sliderContent SharedModels.LocalSliderSchema
+			if err := json.Unmarshal(item.Content, &sliderContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-slider' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = sliderContent
+			}
+		case "local-tab":
+			var tabContent SharedModels.LocalTabSchema
+			if err := json.Unmarshal(item.Content, &tabContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-tab' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = tabContent
+			}
+		case "local-movie-genre":
+			var movieGenreContent SharedModels.LocalMovieGenreSchema
+			if err := json.Unmarshal(item.Content, &movieGenreContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-movie-genre' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = movieGenreContent
+			}
+		case "local-poll":
+			var pollContent SharedModels.LocalPollSchema
+			if err := json.Unmarshal(item.Content, &pollContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-poll' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = pollContent
+			}
+		case "local-section-content":
+			var sectionContentContent SharedModels.LocalSectionContentSchema
+			if err := json.Unmarshal(item.Content, &sectionContentContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-section-content' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = sectionContentContent
+			}
+		case "local-podcast":
+			var podcastContent SharedModels.LocalPodcastSchema
+			if err := json.Unmarshal(item.Content, &podcastContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-podcast' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = podcastContent
+			}
+		case "local-podcastparent":
+			var podcastParentContent SharedModels.LocalPodcastParentSchema
+			if err := json.Unmarshal(item.Content, &podcastParentContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-podcastparent' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = podcastParentContent
+			}
+		case "local-audiobook":
+			var audiobookContent SharedModels.LocalAudiobookSchema
+			if err := json.Unmarshal(item.Content, &audiobookContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-audiobook' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = audiobookContent
+			}
+		case "local-audiobookparent":
+			var audiobookParentContent SharedModels.LocalAudiobookParentSchema
+			if err := json.Unmarshal(item.Content, &audiobookParentContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-audiobookparent' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = audiobookParentContent
+			}
+		case "local-music":
+			var musicContent SharedModels.LocalMusicSchema
+			if err := json.Unmarshal(item.Content, &musicContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-music' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = musicContent
+			}
+		case "local-album":
+			var albumContent SharedModels.LocalAlbumSchema
+			if err := json.Unmarshal(item.Content, &albumContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-album' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = albumContent
+			}
+		case "local-device-update":
+			var deviceUpdateContent SharedModels.LocalDeviceUpdateSchema
+			if err := json.Unmarshal(item.Content, &deviceUpdateContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-device-update' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = deviceUpdateContent
+			}
+		case "local-terms-conditions":
+			var termsContent SharedModels.LocalTermsConditionsSchema
+			if err := json.Unmarshal(item.Content, &termsContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-terms-conditions' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = termsContent
+			}
+			// case "local-news":
+		// 	var newsContent SharedModels.LocalNewsSchema
+		// case "local-magazine":
+		// 	var magazineContent SharedModels.LocalMagazineSchema
+		default:
+			log.Printf("Unknown content type '%s' for item ID %d. Skipping.", item.Type, item.ID)
+			continue // Skip to the next item
+		}
+
+		if parseErr != nil {
+			log.Printf("Error parsing content item: %v", parseErr)
+			// Decide if you want to stop processing or just skip this item
+			// For now, we log and skip.
+			continue
+		}
+
+		if specificContent != nil {
+			processedItems = append(processedItems, SharedModels.ProcessedContentSchema{
+				ID:        item.ID,
+				Type:      item.Type,
+				UpdatedAt: item.UpdatedAt,
+				Enable:    item.Enable,
+				Details:   specificContent,
+			})
+		}
+	}
+
+	log.Printf("Successfully processed %d content items.", len(processedItems))
+	return &contentResp, processedItems, nil
+}
+
+// ProcessContentItem is a placeholder for the function that acts on parsed content.
+func ProcessContentItem(content SharedModels.ProcessedContentSchema) {
+	log.Printf("Processing item ID: %d, Type: %s, Enabled: %t", content.ID, content.Type, content.Enable)
+	// Add your logic here based on content.Type and content.Details
+	switch v := content.Details.(type) {
+	case SharedModels.LocalAdvertisementSchema:
+		log.Printf("Local Advertisement: FileLink: %s, SkipDuration: %d", v.FileLink, v.SkipDuration)
+		// Perform actions for LocalAdvertisementContent
+	case SharedModels.LocalSliderSchema:
+		log.Printf("Local Slider: ImageURL: %s, Num LocalTabIDs: %d", v.ImageURL, len(v.LocalTabIDs))
+		// Perform actions for LocalSliderContent
+	// Add cases for other types
+	default:
+		log.Printf("Cannot perform specific action for type %T", v)
+	}
 }

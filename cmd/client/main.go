@@ -2,10 +2,12 @@ package main
 
 import (
 	"archive/zip"
+	"context"
 	"embedup-go/configs/config"
 	apiClient "embedup-go/internal/apiclient"
 	"embedup-go/internal/cstmerr"
 	"embedup-go/internal/dbclient"
+	"embedup-go/internal/shared"
 	"fmt"
 	"io"
 	"log"
@@ -13,7 +15,49 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+var lastFromTimestamp int64 = 0
+
+func fetchAndProcessContentUpdates(apiClientInstance *apiClient.APIClient,
+	lastFromTimestamp int64) (int64, error) {
+	params := shared.ContentUpdateRequestParams{
+		From:   lastFromTimestamp,
+		Size:   50,
+		Offset: 0,
+	}
+
+	response, processedItems, err := apiClientInstance.FetchContentUpdates(params)
+	if err != nil {
+		log.Printf("Failed to fetch content updates: %v", err)
+		return lastFromTimestamp, err
+	}
+
+	if response == nil {
+		log.Printf("No response received from content updates fetch.")
+		return lastFromTimestamp, fmt.Errorf("nil response from FetchContentUpdates")
+	}
+
+	log.Printf("Fetched %d items, %d remaining in total on server.", len(processedItems), response.Count)
+
+	return lastFromTimestamp, nil
+	// for _, item := range processedItems {
+	// 	apiClient.ProcessContentItem(item)
+	// 	if item.UpdatedAt > lastFromTimestamp {
+	// 		lastFromTimestamp = item.UpdatedAt
+	// 	}
+	// }
+
+	// if len(processedItems) == params.Size && response.Count > 0 {
+	// 	log.Printf("Potentially more items to paginate for timestamp %d.", lastFromTimestamp)
+	// 	return lastFromTimestamp, nil
+	// } else {
+	// 	log.Printf("Finished processing items for timestamp %d or fetched less than a page. Next 'from': %d", params.From, lastFromTimestamp)
+	// 	return lastFromTimestamp, nil
+	// }
+
+}
 
 func resetNTPService() error {
 	log.Println("Attempting to reset NTP service...")
@@ -285,6 +329,18 @@ func runUpdateCycle(cfg *config.Config, apiClient *apiClient.APIClient, currentV
 	return nil
 }
 
+func updateNTPService() {
+	for {
+		if err := resetNTPService(); err != nil {
+			log.Printf("NTP reset error (continuing): %v", err)
+		} else {
+			break
+		}
+		time.Sleep(time.Duration(300) * time.Second)
+	}
+	return
+}
+
 func main() {
 	initLogging()
 	log.Println("Embedded Updater starting...")
@@ -318,40 +374,42 @@ func main() {
 	}
 	defer dbConn.Close()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+	defer cancel()
+	var updater shared.Updater
+	err = dbConn.First(ctx, &updater)
+	if err != nil {
+		log.Fatalf("Failed to retrieve updater record from database: %v", err)
+		lastFromTimestamp = 0 // Default to 0 if no record found
+	} else {
+		log.Printf("Updater record retrieved: %+v", updater)
+		lastFromTimestamp = updater.LastFromTimeStamp
+	}
+
+	go updateNTPService() // Start NTP reset in a goroutine
+
 	// Create API client
-	// The Rust version gets the token from config.DeviceToken
-	// apiClientInstance := apiClient.New(appConfig, appConfig.DeviceToken)
-	// // Main update loop
-	// for {
-	// 	if err := resetNTPService(); err != nil {
-	// 		log.Printf("NTP reset error (continuing): %v", err)
-	// 		// Decide if this is fatal or if the loop should continue
-	// 	}
+	apiClientInstance := apiClient.New(appConfig, appConfig.DeviceToken)
+	// Main update loop
 
-	// 	currentVersion, err := config.GetCurrentVersion(appConfig)
-	// 	if err != nil {
-	// 		log.Printf("Failed to get current version (assuming 0 and continuing): %v", err)
-	// 		currentVersion = 0 // Default to 0
-	// 	}
-	// 	log.Printf("Current service version: %d", currentVersion)
+	currentVersion, err := config.GetCurrentVersion(appConfig)
+	if err != nil {
+		log.Printf("Failed to get current version (assuming 0 and continuing): %v", err)
+		currentVersion = 0 // Default to 0
+	}
+	log.Printf("Current service version: %d", currentVersion)
 
-	// 	// 	// Create a mutable copy of config for this cycle if poll interval needs dynamic adjustment
-	// 	// 	// Or, make appConfig a pointer and modify it directly.
-	// 	// 	// For simplicity here, we'll assume cfg.PollIntervalSeconds modification in runUpdateCycle
-	// 	// 	// affects the appConfig instance if appConfig is passed by reference (as a pointer) or
-	// 	// 	// if runUpdateCycle modifies a global or shared config object.
-	// 	// 	// The Rust code passes `&mut config` to `run_update_cycle`.
-	// 	// 	// So, appConfig should be a pointer if we want to modify its fields within functions.
-	// 	// 	// Let's adjust `runUpdateCycle` to accept `*config.Config`
-	// 	// 	// and `config.Load` to return `*config.Config`. (This was done in the example config.go)
+	for {
 
-	// 	cycleErr := runUpdateCycle(appConfig, apiClientInstance, currentVersion)
-	// 	if cycleErr != nil {
-	// 		log.Printf("Update cycle ended with error: %v", cycleErr)
-	// 		// Error recovery strategy: Rust code logs and continues.
-	// 	}
+		log.Println("Checking for content updates...")
+		lastFromTimestamp, err = fetchAndProcessContentUpdates(
+			apiClientInstance, lastFromTimestamp)
+		if err != nil {
+			log.Printf("Error in content update cycle: %v. Will retry later.", err)
+		}
 
-	// 	log.Printf("Update check cycle finished. Sleeping for %d seconds.", appConfig.PollIntervalSeconds)
-	// 	time.Sleep(time.Duration(appConfig.PollIntervalSeconds) * time.Second) //
-	// }
+		log.Printf("Update check cycle finished. Sleeping for %d seconds.",
+			appConfig.PollIntervalSeconds)
+		time.Sleep(time.Duration(appConfig.PollIntervalSeconds) * time.Second) //
+	}
 }

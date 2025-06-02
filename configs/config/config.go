@@ -29,6 +29,7 @@ type DatabaseConfig struct {
 type Config struct {
 	ServiceName         string         `mapstructure:"service_name"`
 	CurrentVersionFile  string         `mapstructure:"current_version_file"`
+	ContentUpdateAPIURL string         `mapstructure:"content_update_api_url"`
 	UpdateCheckAPIURL   string         `mapstructure:"update_check_api_url"`
 	StatusReportAPIURL  string         `mapstructure:"status_report_api_url"`
 	PollIntervalSeconds uint64         `mapstructure:"poll_interval_seconds"`

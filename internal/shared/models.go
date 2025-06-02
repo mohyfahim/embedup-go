@@ -45,23 +45,23 @@ type GenericContentItem struct {
 // --- Specific Content Type Structs ---
 
 // LocalAdvertisementContent defines the structure for "local-advertisement" type.
-type LocalAdvertisement struct {
+type LocalAdvertisementSchema struct {
 	FileLink     string `json:"fileLink"`
 	SkipDuration int    `json:"skipDuration"`
 }
 
-type LocalPage struct {
+type LocalPageSchema struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
 }
 
-type LocalTab struct {
+type LocalTabSchema struct {
 	Name         string `json:"name"`
 	Type         string `json:"type"`
 	LocalPageIDs []int  `json:"localPageIds"`
 }
 
-type LocalSection struct {
+type LocalSectionSchema struct {
 	Name        string  `json:"name"`
 	Action      *string `json:"action,omitempty"`
 	CardType    *string `json:"cardType,omitempty"`
@@ -69,27 +69,27 @@ type LocalSection struct {
 	EntityType  string  `json:"entityType"`
 	LocalTabIDs []int   `json:"localTabIds"`
 }
-type LocalMovie struct {
+type LocalMovieSchema struct {
 	FileLink string `json:"fileLink"`
-	MovieID  string `json:"movieId"`
+	MovieID  int64  `json:"movieId"`
 }
-type LocalSeries struct {
+type LocalSeriesSchema struct {
 	SeriesID int `json:"seriesId"`
 }
-type LocalSeriesSeason struct {
+type LocalSeriesSeasonSchema struct {
 	LocalSeriesID int `json:"localSeriesId"`
 	SeasonID      int `json:"seasonId"`
 }
-type LocalSeriesEpisode struct {
+type LocalSeriesEpisodeSchema struct {
 	FileLink      string `json:"fileLink"`
 	LocalSeasonID int    `json:"localSeasonId"`
 	EpisodeID     int    `json:"episodeId"`
 }
-type LocalMovieGenre struct {
+type LocalMovieGenreSchema struct {
 	ImageURL string `json:"imageUrl"`
 	Code     string `json:"code"`
 }
-type LocalSlider struct {
+type LocalSliderSchema struct {
 	ImageURL       string  `json:"imageUrl"`
 	SmallImageURL  string  `json:"smallImageUrl"`
 	MediumImageURL string  `json:"mediumImageUrl"`
@@ -109,51 +109,51 @@ type LocalPollQuestion struct {
 	Title   string            `json:"title"`
 	Answers []LocalPollAnswer `json:"answers"`
 }
-type LocalPoll struct {
+type LocalPollSchema struct {
 	Questions []LocalPollQuestion `json:"questions"`
 }
-type LocalSectionContent struct {
+type LocalSectionContentSchema struct {
 	Priority          int    `json:"priority"`
 	LocalSectionID    int    `json:"localSectionId"`
 	EntityContentID   int    `json:"entityContentId"`
 	EntityContentType string `json:"entityContentType"`
 }
-type LocalPodcast struct {
+type LocalPodcastSchema struct {
 	PodcastID            int    `json:"podcastId"`
 	LocalPodcastParentID int    `json:"localPodcastParentId"`
 	FileLink             string `json:"fileLink"`
 }
-type LocalPodcastParent struct {
+type LocalPodcastParentSchema struct {
 	PodcastParentID int `json:"podcastParentId"`
 }
-type LocalAudiobook struct {
+type LocalAudiobookSchema struct {
 	AudiobookID            int    `json:"audiobookId"`
 	LocalAudiobookParentID int    `json:"localAudiobookParentId"`
 	FileLink               string `json:"fileLink"`
 }
-type LocalAudiobookParent struct {
+type LocalAudiobookParentSchema struct {
 	AudiobookParentID int `json:"audiobookParentId"`
 }
-type LocalMusic struct {
+type LocalMusicSchema struct {
 	MusicID      int    `json:"musicId"`
 	LocalAlbumID int    `json:"localAlbumId"`
 	FileLink     string `json:"fileLink"`
 }
-type LocalAlbum struct {
+type LocalAlbumSchema struct {
 	AlbumID int `json:"albumId"`
 }
-type LocalDeviceUpdate struct {
+type LocalDeviceUpdateSchema struct {
 	VersionCode int    `json:"versionCode"`
 	FileURL     string `json:"fileUrl"`
 }
-type LocalTermsConditions struct {
+type LocalTermsConditionsSchema struct {
 	Name    string `json:"name"`
 	Content string `json:"content"`
 }
 
 // ProcessedContent is a wrapper that can hold any of the processed content types.
 // This allows a single channel or function to handle different types.
-type ProcessedContent struct {
+type ProcessedContentSchema struct {
 	ID        int64
 	Type      string
 	UpdatedAt int64

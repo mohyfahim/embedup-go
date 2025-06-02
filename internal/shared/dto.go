@@ -449,6 +449,12 @@ type Video struct {
 	ReleaseTime time.Time  `gorm:"not null;type:timestamptz;column:releaseTime"`
 }
 
+type Updater struct {
+	ContentId         int64 `gorm:"primaryKey;type:bigint;column:contentId"`
+	LastFromTimeStamp int64 `gorm:"not null;type:bigint;column:lastFromTimeStamp"`
+	UniqueFlag        bool  `gorm:"not null;default:false;column:uniqueFlag;index:,unique"`
+}
+
 var AutoMigrateList = []any{
 	&Advertisement{},
 	&Album{},
