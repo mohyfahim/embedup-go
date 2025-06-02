@@ -11,7 +11,6 @@ import (
 
 	"embedup-go/configs/config"
 	"embedup-go/internal/cstmerr"
-	"embedup-go/internal/shared"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -108,11 +107,11 @@ func (ga *GORMAdapter) Connect(ctx context.Context) error {
 	}
 
 	// TODO: Uncomment if you want to auto-migrate models
-	ga.db.AutoMigrate(shared.AutoMigrateList...)
-	err = ga.db.SetupJoinTable(&shared.Page{}, "Tabs", &shared.PageTabsTab{})
-	if err != nil {
-		return cstmerr.NewDBConnectionError("failed to setup join table for Page and Tabs", err)
-	}
+	// ga.db.AutoMigrate(shared.AutoMigrateList...)
+	// err = ga.db.SetupJoinTable(&shared.Page{}, "Tabs", &shared.PageTabsTab{})
+	// if err != nil {
+	// 	return cstmerr.NewDBConnectionError("failed to setup join table for Page and Tabs", err)
+	// }
 
 	sqlDB, err := ga.db.DB()
 	if err != nil {

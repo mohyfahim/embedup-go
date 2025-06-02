@@ -288,10 +288,10 @@ type Page struct {
 	Tabs      []*Tab  `gorm:"many2many:page_tabs_tab"`
 }
 
-type PageTabsTab struct {
-	PageContentId int `gorm:"primaryKey;type:bigint;"`
-	TabContentId  int `gorm:"primaryKey;type:bigint;"`
-}
+// type PageTabsTab struct {
+// 	PageContentId int `gorm:"primaryKey;type:bigint;"`
+// 	TabContentId  int `gorm:"primaryKey;type:bigint;"`
+// }
 
 type Podcast struct {
 	ContentId   int64        `gorm:"primaryKey;type:bigint"`
