@@ -5,6 +5,7 @@ import (
 	"embedup-go/configs/config"
 	apiClient "embedup-go/internal/apiclient"
 	"embedup-go/internal/cstmerr"
+	"embedup-go/internal/dbclient"
 	"fmt"
 	"io"
 	"log"
@@ -12,7 +13,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 func resetNTPService() error {
@@ -312,40 +312,46 @@ func main() {
 		return
 	}
 
+	dbConn, err := dbclient.NewDBClient(&appConfig.Database, "gorm")
+	if err != nil {
+		log.Fatalf("Failed to initialize GORM database client: %v", err)
+	}
+	defer dbConn.Close()
+
 	// Create API client
 	// The Rust version gets the token from config.DeviceToken
-	apiClientInstance := apiClient.New(appConfig, appConfig.DeviceToken)
-	// Main update loop
-	for {
-		if err := resetNTPService(); err != nil {
-			log.Printf("NTP reset error (continuing): %v", err)
-			// Decide if this is fatal or if the loop should continue
-		}
+	// apiClientInstance := apiClient.New(appConfig, appConfig.DeviceToken)
+	// // Main update loop
+	// for {
+	// 	if err := resetNTPService(); err != nil {
+	// 		log.Printf("NTP reset error (continuing): %v", err)
+	// 		// Decide if this is fatal or if the loop should continue
+	// 	}
 
-		currentVersion, err := config.GetCurrentVersion(appConfig)
-		if err != nil {
-			log.Printf("Failed to get current version (assuming 0 and continuing): %v", err)
-			currentVersion = 0 // Default to 0
-		}
-		log.Printf("Current service version: %d", currentVersion)
+	// 	currentVersion, err := config.GetCurrentVersion(appConfig)
+	// 	if err != nil {
+	// 		log.Printf("Failed to get current version (assuming 0 and continuing): %v", err)
+	// 		currentVersion = 0 // Default to 0
+	// 	}
+	// 	log.Printf("Current service version: %d", currentVersion)
 
-		// 	// Create a mutable copy of config for this cycle if poll interval needs dynamic adjustment
-		// 	// Or, make appConfig a pointer and modify it directly.
-		// 	// For simplicity here, we'll assume cfg.PollIntervalSeconds modification in runUpdateCycle
-		// 	// affects the appConfig instance if appConfig is passed by reference (as a pointer) or
-		// 	// if runUpdateCycle modifies a global or shared config object.
-		// 	// The Rust code passes `&mut config` to `run_update_cycle`.
-		// 	// So, appConfig should be a pointer if we want to modify its fields within functions.
-		// 	// Let's adjust `runUpdateCycle` to accept `*config.Config`
-		// 	// and `config.Load` to return `*config.Config`. (This was done in the example config.go)
+	// 	// 	// Create a mutable copy of config for this cycle if poll interval needs dynamic adjustment
+	// 	// 	// Or, make appConfig a pointer and modify it directly.
+	// 	// 	// For simplicity here, we'll assume cfg.PollIntervalSeconds modification in runUpdateCycle
+	// 	// 	// affects the appConfig instance if appConfig is passed by reference (as a pointer) or
+	// 	// 	// if runUpdateCycle modifies a global or shared config object.
+	// 	// 	// The Rust code passes `&mut config` to `run_update_cycle`.
+	// 	// 	// So, appConfig should be a pointer if we want to modify its fields within functions.
+	// 	// 	// Let's adjust `runUpdateCycle` to accept `*config.Config`
+	// 	// 	// and `config.Load` to return `*config.Config`. (This was done in the example config.go)
 
-		cycleErr := runUpdateCycle(appConfig, apiClientInstance, currentVersion)
-		if cycleErr != nil {
-			log.Printf("Update cycle ended with error: %v", cycleErr)
-			// Error recovery strategy: Rust code logs and continues.
-		}
+	// 	cycleErr := runUpdateCycle(appConfig, apiClientInstance, currentVersion)
+	// 	if cycleErr != nil {
+	// 		log.Printf("Update cycle ended with error: %v", cycleErr)
+	// 		// Error recovery strategy: Rust code logs and continues.
+	// 	}
 
-		log.Printf("Update check cycle finished. Sleeping for %d seconds.", appConfig.PollIntervalSeconds)
-		time.Sleep(time.Duration(appConfig.PollIntervalSeconds) * time.Second) //
-	}
+	// 	log.Printf("Update check cycle finished. Sleeping for %d seconds.", appConfig.PollIntervalSeconds)
+	// 	time.Sleep(time.Duration(appConfig.PollIntervalSeconds) * time.Second) //
+	// }
 }
