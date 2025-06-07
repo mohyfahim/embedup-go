@@ -2,10 +2,13 @@ package main
 
 import (
 	"archive/zip"
+	"context"
 	"embedup-go/configs/config"
 	apiClient "embedup-go/internal/apiclient"
+	"embedup-go/internal/controller"
 	"embedup-go/internal/cstmerr"
 	"embedup-go/internal/dbclient"
+	"embedup-go/internal/shared"
 	"fmt"
 	"io"
 	"log"
@@ -13,29 +16,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
-
-func resetNTPService() error {
-	log.Println("Attempting to reset NTP service...")
-	// In the Rust code, sudo is used directly. Ensure your Go application
-	// has the necessary permissions or is run by a user who can execute this.
-	cmd := exec.Command("/usr/bin/sudo", "/usr/bin/systemctl", "restart", "ntp") //
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("Failed to restart ntp service: %v, Output: %s", err, string(output))
-		return cstmerr.NewScriptError("Failed to restart ntp service", err)
-	}
-	log.Println("NTP service reset successfully.")
-	return nil
-}
 
 func initLogging() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile) // Basic logging setup
 	log.Println("Logging initialized")
 }
 
-// unzipUpdate extracts a ZIP archive to a destination directory.
-// It mirrors the functionality of `unzip_update` in the Rust code.
 func unzipUpdate(zipFilePath string, outputDir string) error {
 	log.Printf("Unzipping update from %s to %s", zipFilePath, outputDir)
 
@@ -50,7 +38,6 @@ func unzipUpdate(zipFilePath string, outputDir string) error {
 	for _, f := range r.File {
 		outPath := filepath.Join(outputDir, f.Name)
 
-		// Sanitize file path to prevent directory traversal vulnerabilities
 		if !strings.HasPrefix(outPath, filepath.Clean(outputDir)+string(os.PathSeparator)) {
 			return cstmerr.NewArchiveError(fmt.Sprintf("Illegal file path in archive: %s", f.Name), nil)
 		}
@@ -62,7 +49,6 @@ func unzipUpdate(zipFilePath string, outputDir string) error {
 			continue
 		}
 
-		// Create parent directories if they don't exist
 		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil { //
 			return cstmerr.NewFileSystemError(fmt.Sprintf("Failed to create parent directory for %s: %v", outPath, err))
 		}
@@ -80,7 +66,6 @@ func unzipUpdate(zipFilePath string, outputDir string) error {
 
 		_, err = io.Copy(outFile, rc) //
 
-		// Close files explicitly to handle errors
 		closeErr1 := rc.Close()
 		closeErr2 := outFile.Close()
 
@@ -94,13 +79,9 @@ func unzipUpdate(zipFilePath string, outputDir string) error {
 			return cstmerr.NewFileIOError(fmt.Sprintf("Failed to close output file %s", outPath), closeErr2)
 		}
 
-		// Set permissions (Unix specific, from Rust code)
-		// The Rust code uses `file.unix_mode()`. Here, we use the mode from f.Mode()
-		// which should be similar.
-		if f.Mode()&os.ModeSymlink == 0 { // Don't chmod symlinks directly
+		if f.Mode()&os.ModeSymlink == 0 {
 			if err := os.Chmod(outPath, f.Mode()); err != nil { //
 				log.Printf("Warning: Failed to set permissions on %s: %v", outPath, err)
-				// Depending on requirements, this might be a non-fatal error.
 			}
 		}
 	}
@@ -144,7 +125,6 @@ func runUpdateScript(cfg *config.Config, scriptPath string, workingDir string) e
 	return nil
 }
 
-// runUpdateCycle performs one cycle of checking for, downloading, and applying an update.
 func runUpdateCycle(cfg *config.Config, apiClient *apiClient.APIClient, currentVersion int) error {
 	log.Println("Starting update check cycle...")
 
@@ -155,9 +135,7 @@ func runUpdateCycle(cfg *config.Config, apiClient *apiClient.APIClient, currentV
 		} else {
 			log.Printf("Error checking for updates: %v", err)
 		}
-		// In Rust, specific errors like NoUpdateAvailable are handled.
-		// Here, we might need to inspect the error type more closely if different behaviors are needed.
-		// For now, any error from CheckForUpdates logs and returns.
+
 		return fmt.Errorf("update check failed: %w", err)
 	}
 
@@ -167,14 +145,7 @@ func runUpdateCycle(cfg *config.Config, apiClient *apiClient.APIClient, currentV
 	if updateInfo.VersionCode > currentVersion {
 		fileNameParts := strings.Split(updateInfo.FileURL, "/")
 		fileNameWithExt := fileNameParts[len(fileNameParts)-1]
-		// Assuming the file name from URL does not have .zip, but if it does, this needs adjustment
-		// 	// The Rust code `format!("{}.zip", file_name)` suggests the URL gives a base name.
-		// 	// If file_url already ends with .zip, then `fileNameWithExt` is fine.
-		// 	// Let's assume file_url gives the full name like "update_package_v2.zip"
-		// 	// If it's "update_package_v2", then we need to add ".zip"
-		// 	// The Rust code does: `download_path.push(format!("{}.zip", file_name));`
-		// 	// where file_name is `update_info.file_url.split('/').last().unwrap();`
-		// 	// This implies file_name *might not* have .zip. Let's stick to the Rust logic.
+
 		baseFileName := fileNameWithExt
 		if strings.HasSuffix(strings.ToLower(baseFileName), ".zip") {
 			baseFileName = baseFileName[:len(baseFileName)-4]
@@ -184,7 +155,7 @@ func runUpdateCycle(cfg *config.Config, apiClient *apiClient.APIClient, currentV
 		downloadPath := filepath.Join(cfg.DownloadBaseDir, downloadFileName)
 
 		log.Printf("Downloading update %s to %s", updateInfo.FileURL, downloadPath)
-		err = apiClient.DownloadUpdate(updateInfo.FileURL, downloadPath)
+		err = apiClient.DownloadFile(updateInfo.FileURL, downloadPath)
 		if err != nil {
 			log.Printf("Error downloading update: %v", err)
 			if _, ok := err.(*cstmerr.TimeoutError); ok { //
@@ -301,14 +272,9 @@ func main() {
 	}
 	log.Printf("Configuration loaded for service: %s", appConfig.ServiceName)
 
-	// Ensure download_base_dir exists
-	if _, err := os.Stat(appConfig.DownloadBaseDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(appConfig.DownloadBaseDir, 0755); err != nil { // 0755 gives rwx for owner, rx for group/other
-			log.Fatalf("failed to create download base directory %s: %v", appConfig.DownloadBaseDir, err)
-			return
-		}
-	} else if err != nil {
-		log.Fatalf("failed to check download base directory %s: %v", appConfig.DownloadBaseDir, err)
+	//TODO: move this to the controller for update
+	err = shared.CheckAndCreateDir(appConfig.DownloadBaseDir)
+	if err != nil {
 		return
 	}
 
@@ -318,40 +284,40 @@ func main() {
 	}
 	defer dbConn.Close()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+	defer cancel()
+
+	var updater shared.Updater
+	err = dbConn.First(ctx, &updater)
+	if err != nil {
+		log.Fatalf("Failed to retrieve updater record from database: %v", err)
+		updater.LastFromTimeStamp = 0
+		//TODO: create instance of updater
+	}
+
+	go shared.UpdateNTPService() // Start NTP reset in a goroutine
+
 	// Create API client
-	// The Rust version gets the token from config.DeviceToken
-	// apiClientInstance := apiClient.New(appConfig, appConfig.DeviceToken)
-	// // Main update loop
-	// for {
-	// 	if err := resetNTPService(); err != nil {
-	// 		log.Printf("NTP reset error (continuing): %v", err)
-	// 		// Decide if this is fatal or if the loop should continue
-	// 	}
+	apiClientInstance := apiClient.New(appConfig, appConfig.DeviceToken)
+	// Main update loop
 
-	// 	currentVersion, err := config.GetCurrentVersion(appConfig)
-	// 	if err != nil {
-	// 		log.Printf("Failed to get current version (assuming 0 and continuing): %v", err)
-	// 		currentVersion = 0 // Default to 0
-	// 	}
-	// 	log.Printf("Current service version: %d", currentVersion)
+	currentVersion, err := config.GetCurrentVersion(appConfig)
+	if err != nil {
+		log.Printf("Failed to get current version (assuming 0 and continuing): %v", err)
+		currentVersion = 0 // Default to 0
+	}
+	log.Printf("Current service version: %d", currentVersion)
+	//TODO: send a status to server, report the current version
+	for {
+		log.Println("Checking for content updates...")
+		err = controller.FetchAndProcessContentUpdates(
+			apiClientInstance, dbConn, &updater)
+		if err != nil {
+			log.Printf("Error in content update cycle: %v. Will retry later.", err)
+		}
 
-	// 	// 	// Create a mutable copy of config for this cycle if poll interval needs dynamic adjustment
-	// 	// 	// Or, make appConfig a pointer and modify it directly.
-	// 	// 	// For simplicity here, we'll assume cfg.PollIntervalSeconds modification in runUpdateCycle
-	// 	// 	// affects the appConfig instance if appConfig is passed by reference (as a pointer) or
-	// 	// 	// if runUpdateCycle modifies a global or shared config object.
-	// 	// 	// The Rust code passes `&mut config` to `run_update_cycle`.
-	// 	// 	// So, appConfig should be a pointer if we want to modify its fields within functions.
-	// 	// 	// Let's adjust `runUpdateCycle` to accept `*config.Config`
-	// 	// 	// and `config.Load` to return `*config.Config`. (This was done in the example config.go)
-
-	// 	cycleErr := runUpdateCycle(appConfig, apiClientInstance, currentVersion)
-	// 	if cycleErr != nil {
-	// 		log.Printf("Update cycle ended with error: %v", cycleErr)
-	// 		// Error recovery strategy: Rust code logs and continues.
-	// 	}
-
-	// 	log.Printf("Update check cycle finished. Sleeping for %d seconds.", appConfig.PollIntervalSeconds)
-	// 	time.Sleep(time.Duration(appConfig.PollIntervalSeconds) * time.Second) //
-	// }
+		log.Printf("Update check cycle finished. Sleeping for %d seconds.",
+			appConfig.PollIntervalSeconds)
+		time.Sleep(time.Duration(appConfig.PollIntervalSeconds) * time.Second) //
+	}
 }

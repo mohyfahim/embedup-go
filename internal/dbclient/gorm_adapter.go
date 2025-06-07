@@ -11,6 +11,7 @@ import (
 
 	"embedup-go/configs/config"
 	"embedup-go/internal/cstmerr"
+	"embedup-go/internal/shared"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -107,6 +108,7 @@ func (ga *GORMAdapter) Connect(ctx context.Context) error {
 	}
 
 	// TODO: Uncomment if you want to auto-migrate models
+	ga.db.AutoMigrate(&shared.Updater{})
 	// ga.db.AutoMigrate(shared.AutoMigrateList...)
 	// err = ga.db.SetupJoinTable(&shared.Page{}, "Tabs", &shared.PageTabsTab{})
 	// if err != nil {
@@ -230,11 +232,6 @@ func (ga *GORMAdapter) First(ctx context.Context, model interface{}, conditions 
 	if ga.db == nil {
 		return cstmerr.NewDBError("database not connected (GORM)", nil)
 	}
-	// GORM's First/Take:
-	// db.First(&user, 10) -> SELECT * FROM users WHERE id = 10;
-	// db.First(&user, "name = ?", "jinzhu")
-	// db.First(&user, User{Name: "jinzhu"})
-	// The conditions are passed directly to GORM.
 	db := ga.db.WithContext(ctx)
 	var result *gorm.DB
 	if len(conditions) > 0 {
