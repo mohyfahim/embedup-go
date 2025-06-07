@@ -6,6 +6,7 @@ import (
 	"embedup-go/internal/cstmerr"
 	"embedup-go/internal/dbclient"
 	SharedModels "embedup-go/internal/shared"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -108,26 +109,22 @@ func ProcessLocalAdvertisement(
 		}
 		destinationFile := filepath.Join(destinationPath, podspaceHash)
 		log.Printf("destination file: %s", destinationFile)
-		var retryCount int = 0
-		for {
-			err := apiclient.DownloadFile(detail.FileLink, destinationFile)
-			if err == nil {
-				break
-			}
-			if retryCount == 3 {
-				return cstmerr.NewRetryError("retry reached")
-			}
-			retryCount++
+
+		err = apiclient.DownloadFileWithRetry(detail.FileLink, destinationFile)
+
+		if err != nil {
+			log.Printf("error in downloading hash")
+			//TODO: handle download issues?
 		}
 
 		localAdvertisement.SkipDuration = int32(detail.SkipDuration)
 		localAdvertisement.Synced = false
 		localAdvertisementLink.LinkType = "MP4"
-		_, err = SharedModels.CalculateMD5(destinationFile, 1025)
+		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
 		if err != nil {
 			log.Printf("error in calculating hash %v", err)
 		}
-		localAdvertisementLink.FileHash = "string(hash)"
+		localAdvertisementLink.FileHash = hex.EncodeToString(hash)
 		localAdvertisementLink.PlayLink = destinationFile
 		localAdvertisementLink.OriginalLink = detail.FileLink
 		localAdvertisement.Link = localAdvertisementLink

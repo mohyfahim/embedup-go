@@ -192,6 +192,21 @@ func (ac *APIClient) DownloadFile(url string, destinationPath string) error {
 	return nil
 }
 
+func (ac *APIClient) DownloadFileWithRetry(url string, destinationPath string) error {
+	var retryCount int = 0
+	for {
+		err := ac.DownloadFile(url, destinationPath)
+		if err == nil {
+			break
+		}
+		if retryCount == 3 {
+			return cstmerr.NewRetryError("retry reached", err)
+		}
+		retryCount++
+	}
+	return nil
+}
+
 // ReportStatus sends a status update to the API.
 func (ac *APIClient) ReportStatus(versionCode int, statusMessage string) error {
 	payload := StatusReportPayload{

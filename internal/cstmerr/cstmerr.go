@@ -190,6 +190,6 @@ func NewLinkParseError(msg string) *LinkParseError {
 
 type RetryError struct{ BaseError }
 
-func NewRetryError(msg string) *RetryError {
-	return &RetryError{BaseError{Msg: "Retry error: " + msg}}
+func NewRetryError(msg string, underlyingError error) *RetryError {
+	return &RetryError{BaseError{Msg: "Retry error: " + msg, Err: underlyingError}}
 }

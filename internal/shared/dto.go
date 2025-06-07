@@ -179,7 +179,7 @@ type VideoLink struct {
 type Advertisement struct {
 	ContentId    int64             `gorm:"primaryKey;type:bigint;column:contentId"`
 	SkipDuration int32             `gorm:"not null"`
-	Link         AdvertisementLink `gorm:"not null;type:jsonb;default:'{}'"`
+	Link         AdvertisementLink `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
 	ViewCount    int32             `gorm:"not null;default:0"`
 	Synced       bool              `gorm:"not null"`
 }
@@ -187,11 +187,11 @@ type Advertisement struct {
 type Album struct {
 	ContentId   int64       `gorm:"primaryKey;type:bigint;column:contentId"`
 	EntityId    int64       `gorm:"not null;type:bigint;column:entityId"`
-	Description string      `gorm:"not null;default:'';column:description"`         // Assuming 'description' is not nullable
-	Image       AlbumImage  `gorm:"not null;type:jsonb;default:'{}';column:image"`  // Stored as JSON
-	Agents      []PersonDTO `gorm:"not null;type:jsonb;default:'[]';column:agents"` // Stored as JSON array
-	Genre       AlbumGenre  `gorm:"not null;type:jsonb;default:'{}';column:genre"`  // Stored as JSON
-	Name        string      `gorm:"not null;column:name"`                           // Assuming 'name' is not nullable
+	Description string      `gorm:"not null;default:'';column:description"`                         // Assuming 'description' is not nullable
+	Image       AlbumImage  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`  // Stored as JSON
+	Agents      []PersonDTO `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"` // Stored as JSON array
+	Genre       AlbumGenre  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`  // Stored as JSON
+	Name        string      `gorm:"not null;column:name"`                                           // Assuming 'name' is not nullable
 }
 
 type AudioBook struct {
@@ -199,12 +199,12 @@ type AudioBook struct {
 	EntityId    int64          `gorm:"type:bigint;column:entityId"`
 	Description string         `gorm:"default:'';type:varchar;column:description"`
 	Ages        *int32         `gorm:"type:integer;default:0;column:ages"`
-	Link        AudioBookLink  `gorm:"not null;type:jsonb;default:'{}';column:link"`
-	Image       AudioBookImage `gorm:"not null;type:jsonb;default:'{}';column:image"`
+	Link        AudioBookLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:link"`
+	Image       AudioBookImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
 	// AudiobookAlbumContentId *int64         // Foreign Key for AudiobookAlbum
 	AudiobookAlbumContentId *AudiobookAlbum `gorm:"foreignKey:AudiobookAlbumContentId;column:audiobookAlbumContentId"`
-	Genre                   AudioBookGenre  `gorm:"not null;type:jsonb;default:'{}';column:genre"`
-	Agents                  []PersonDTO     `gorm:"not null;type:jsonb;default:'[]';column:agents"`
+	Genre                   AudioBookGenre  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`
+	Agents                  []PersonDTO     `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"`
 	Name                    string          `gorm:"not null;type:varchar;column:name"`
 	PublishDate             *time.Time      `gorm:"type:timestamptz;column:publishDate"`
 	Duration                *int            `gorm:"default:0;column:duration"`
@@ -215,9 +215,9 @@ type AudiobookAlbum struct {
 	EntityId    int64          `gorm:"type:bigint;column:entityId"`
 	Description string         `gorm:"default:'';type:varchar;column:description"`
 	Ages        *int32         `gorm:"type:integer;default:0;column:ages"`
-	Image       AudioBookImage `gorm:"not null;type:jsonb;default:'{}';column:image"`
-	Genre       AudioBookGenre `gorm:"not null;type:jsonb;default:'{}';column:genre"`
-	Agents      []PersonDTO    `gorm:"not null;type:jsonb;default:'[]';column:agents"`
+	Image       AudioBookImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
+	Genre       AudioBookGenre `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`
+	Agents      []PersonDTO    `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"`
 	PublishDate *time.Time     `gorm:"type:timestamptz;column:publishDate"`
 	// Audiobooks  []AudioBook    `gorm:"foreignKey:AudiobookAlbumId;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Duration int    `gorm:"not null;column:duration"` // Assuming not null
@@ -242,19 +242,19 @@ type Magazine struct {
 	Title     string        `gorm:"not null;type:varchar;column:title"`
 	LongText  string        `gorm:"not null;type:text;column:longText"`
 	Text      *string       `gorm:"type:text;column:text"`
-	Image     MagazineImage `gorm:"not null;type:jsonb;default:'{}';column:image"`
+	Image     MagazineImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
 }
 
 type Music struct {
 	ContentId      int64        `gorm:"primaryKey;type:bigint"`
 	EntityId       int64        `gorm:"type:bigint"`
 	Description    string       `gorm:"default:''"`
-	Image          MusicImage   `gorm:"not null;type:jsonb;default:'{}'"`
-	Link           MusicLink    `gorm:"not null;type:jsonb;default:'{}'"`
+	Image          MusicImage   `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Link           MusicLink    `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
 	AlbumContentId *int64       // Foreign key for Album
-	Album          *Album       `gorm:"foreignKey:AlbumContentId"`        // Belongs to Album
-	Genres         []MovieGenre `gorm:"not null;type:jsonb;default:'[]'"` // Embedded JSON
-	Agents         []PersonDTO  `gorm:"not null;type:jsonb;default:'[]'"`
+	Album          *Album       `gorm:"foreignKey:AlbumContentId"`                        // Belongs to Album
+	Genres         []MovieGenre `gorm:"not null;type:jsonb;serializer:json;default:'[]'"` // Embedded JSON
+	Agents         []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
 	Name           string       `gorm:"not null"`
 	PublishDate    *time.Time   `gorm:"type:timestamptz"`
 	CreatedAt      time.Time    `gorm:"type:timestamptz;autoCreateTime"`
@@ -268,8 +268,8 @@ type Movie struct {
 	PostId           *int64       `gorm:"type:bigint;column:postId"`
 	NameEn           *string      `gorm:"type:varchar;column:nameEn"`
 	Description      string       `gorm:"not null;type:varchar;column:description"`
-	Image            MovieImage   `gorm:"not null;type:jsonb;default:'{}';column:image"`
-	Link             MovieLink    `gorm:"not null;type:jsonb;default:'{}';column:link"`
+	Image            MovieImage   `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
+	Link             MovieLink    `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:link"`
 	Ages             *int         `gorm:"column:ages"`
 	Company          *string      `gorm:"type:varchar;column:company"`
 	ImdbCode         *string      `gorm:"type:varchar;column:imdbCode"`
@@ -278,8 +278,8 @@ type Movie struct {
 	Duration         *int         `gorm:"column:duration"`
 	PlayLink         *string      `gorm:"type:varchar;column:playLink"`
 	FileHash         *string      `gorm:"type:varchar;column:fileHash"`
-	Genres           []MovieGenre `gorm:"not null;type:jsonb;default:'[]'"`
-	Casts            []PersonDTO  `gorm:"not null;type:jsonb;default:'[]'"`
+	Genres           []MovieGenre `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
+	Casts            []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
 }
 
 type Page struct {
@@ -299,13 +299,13 @@ type Podcast struct {
 	EntityId    int64        `gorm:"not null;type:bigint"`
 	Description string       `gorm:"default:'';not null; type:varchar"`
 	Ages        *int32       `gorm:"type:integer;default:0"`
-	Image       PodcastImage `gorm:"not null;type:jsonb;default:'{}'"`
-	Link        PodcastLink  `gorm:"not null;type:jsonb;default:'{}'"`
-	Agents      []PersonDTO  `gorm:"not null;type:jsonb;default:'[]'"`
+	Image       PodcastImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Link        PodcastLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Agents      []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
 	Duration    *int         `gorm:"default:0"`
 	// PodcastAlbumId *int64        // Foreign Key
 	PodcastAlbumContentId *PodcastAlbum `gorm:"foreignKey:PodcastAlbumContentId;column:podcastAlbumContentId"`
-	Genre                 PodcastGenre  `gorm:"not null;type:jsonb;default:'{}'"`
+	Genre                 PodcastGenre  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
 	Name                  string        `gorm:"not null;type:varchar"`
 	PublishDate           *time.Time    `gorm:"type:timestamptz"`
 }
@@ -315,9 +315,9 @@ type PodcastAlbum struct {
 	EntityId    int64        `gorm:"type:bigint"`
 	Description string       `gorm:"default:'';not null;type:varchar"`
 	Ages        *int32       `gorm:"type:integer;default:0"`
-	Image       PodcastImage `gorm:"not null;type:jsonb;default:'{}'"`
-	Genre       PodcastGenre `gorm:"not null;type:jsonb;default:'{}'"`
-	Agents      []PersonDTO  `gorm:"not null;type:jsonb;default:'[]'"`
+	Image       PodcastImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Genre       PodcastGenre `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Agents      []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
 	PublishDate *time.Time   `gorm:"type:timestamptz"`
 	// Podcasts    []Podcast    `gorm:"foreignKey:PodcastAlbumId;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Duration int    `gorm:"not null"`
@@ -326,7 +326,7 @@ type PodcastAlbum struct {
 
 type Poll struct {
 	ContentId int64             `gorm:"primaryKey;type:bigint"`
-	Questions []PollQuestionDTO `gorm:"not null;type:jsonb"` // Needs PollQuestionDTO defined
+	Questions []PollQuestionDTO `gorm:"not null;type:jsonb;serializer:json"` // Needs PollQuestionDTO defined
 	Title     string            `gorm:"not null; type:varchar"`
 	Enable    bool              `gorm:"not null"`
 }
@@ -381,14 +381,14 @@ type Series struct {
 	NameFa           string       `gorm:"not null;type:varchar"`
 	NameEn           *string      `gorm:"type:varchar"`
 	Description      string       `gorm:"not null;type:varchar"`
-	Image            MovieImage   `gorm:"not null;type:jsonb;default:'{}'"`
+	Image            MovieImage   `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
 	Ages             *int32       `gorm:"type:integer"`
 	Company          *string      `gorm:"type:varchar"`
 	ImdbCode         *string      `gorm:"type:varchar"`
 	ImdbRate         *float64     `gorm:"type:real"`
 	YearsOfBroadcast *int32       `gorm:"type:integer"`
-	Genres           []MovieGenre `gorm:"not null;type:jsonb;default:'[]'"`
-	Casts            []PersonDTO  `gorm:"not null;type:jsonb;default:'[]'"`
+	Genres           []MovieGenre `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
+	Casts            []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
 	// Seasons          []SeriesSeason `gorm:"foreignKey:SeriesContentId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"` // SeriesContentId in SeriesSeason
 }
 
@@ -409,15 +409,15 @@ type SeriesEpisode struct {
 	Index     int64              `gorm:"not null;type:bigint"`
 	Name      string             `gorm:"not null;type:varchar"`
 	NameEn    *string            `gorm:"type:varchar"`
-	Image     SeriesEpisodeImage `gorm:"not null;type:jsonb;default:'{}'"`
-	Link      SeriesEpisodeLink  `gorm:"not null;type:jsonb;default:'{}'"`
+	Image     SeriesEpisodeImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Link      SeriesEpisodeLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
 	// SeasonContentId *int64             // Foreign Key to SeriesSeason
 	SeasonContentId *SeriesSeason `gorm:"foreignKey:SeasonContentId;column:seasonContentId"`
 }
 
 type Slider struct {
 	ContentId   int64       `gorm:"primaryKey;type:bigint"`
-	Image       SliderImage `gorm:"not null;type:jsonb;default:'{}'"`
+	Image       SliderImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
 	Type        *string     `gorm:"type:varchar"`
 	EntityType  *string     `gorm:"type:varchar"`
 	EntityId    *int64      `gorm:"type:bigint"`
@@ -444,8 +444,8 @@ type Video struct {
 	ContentId   int64      `gorm:"primaryKey;type:bigint;column:contentId"`
 	Name        string     `gorm:"not null;type:varchar;column:name"`
 	Description *string    `gorm:"type:varchar;column:description"`
-	Image       VideoImage `gorm:"not null;type:jsonb;default:'{}';column:image"`
-	Link        VideoLink  `gorm:"not null;type:jsonb;default:'{}';column:link"`
+	Image       VideoImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
+	Link        VideoLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:link"`
 	Duration    int32      `gorm:"not null;type:integer;column:duration"`
 	ReleaseTime time.Time  `gorm:"not null;type:timestamptz;column:releaseTime"`
 }
