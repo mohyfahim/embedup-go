@@ -66,25 +66,17 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("update_script_name", "update.sh")
 
 	if configPath != "" {
-		// If a specific config file path is provided, use it directly.
 		v.SetConfigFile(configPath)
-		v.SetConfigType("toml") // Or "json", "yaml", etc. based on your file type
+		v.SetConfigType("toml")
 	} else {
-		// Otherwise, search for a config file.
-		v.SetConfigName("config")               // Name of config file (without extension)
-		v.SetConfigType("toml")                 // REQUIRED if the config file does not have the extension in the name
-		v.AddConfigPath("/etc/podbox_update/")  // Path to look for the config file in
-		v.AddConfigPath("$HOME/.podbox_update") // Call multiple times to add many search paths
-		v.AddConfigPath(".")                    // Optionally look for config in the working directory
+		v.SetConfigName("config")
+		v.SetConfigType("toml")
+		v.AddConfigPath("/etc/podbox_update/")
+		v.AddConfigPath("$HOME/.podbox_update")
+		v.AddConfigPath(".")
 	}
-
-	// Environment variable integration (optional but very useful)
-	// Viper can automatically override config file values with environment variables.
-	// E.g., PODBOX_SERVICE_NAME will override ServiceName.
-	v.SetEnvPrefix("PODBOX_UPDATE") // Will be uppercased automatically
-	v.AutomaticEnv()
-	// You can also bind specific env vars:
-	// v.BindEnv("service_name", "PODBOX_SERVICE_NAME")
+	v.BindEnv("database.db_password_conf",
+		"PODBOX_UPDATE_DB_PASSWORD_CONF")
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {

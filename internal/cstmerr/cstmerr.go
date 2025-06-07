@@ -181,3 +181,15 @@ func NewDBTransactionError(msg string, underlyingErr error) *DBTransactionError 
 // if _, ok := err.(*customerrors.TimeoutError); ok { ... }
 // var timeoutErr *customerrors.TimeoutError
 // if errors.As(err, &timeoutErr) { ... }
+
+type LinkParseError struct{ BaseError }
+
+func NewLinkParseError(msg string) *LinkParseError {
+	return &LinkParseError{BaseError{Msg: "Link Parse error: " + msg}}
+}
+
+type RetryError struct{ BaseError }
+
+func NewRetryError(msg string) *RetryError {
+	return &RetryError{BaseError{Msg: "Retry error: " + msg}}
+}

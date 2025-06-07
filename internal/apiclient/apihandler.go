@@ -85,7 +85,7 @@ func (ac *APIClient) CheckForUpdates() (*UpdateInfo, error) {
 
 // DownloadUpdate downloads a file from the given URL to the destination path.
 // It supports resuming downloads.
-func (ac *APIClient) DownloadUpdate(url string, destinationPath string) error {
+func (ac *APIClient) DownloadFile(url string, destinationPath string) error {
 	log.Printf("Attempting to download from %s to %s", url, destinationPath)
 
 	// Ensure parent directory exists
@@ -289,7 +289,7 @@ func (ac *APIClient) FetchContentUpdates(
 	for _, item := range contentResp.Contents {
 		var specificContent any
 		var parseErr error
-		log.Printf("Processing content item ID: %d, Type: %s, UpdatedAt: %d, Enabled: %t",
+		log.Printf("Extracting content item ID: %d, Type: %s, UpdatedAt: %d, Enabled: %t",
 			item.ID, item.Type, item.UpdatedAt, item.Enable)
 		switch item.Type {
 		case "local-advertisement":
@@ -461,21 +461,4 @@ func (ac *APIClient) FetchContentUpdates(
 
 	log.Printf("Successfully processed %d content items.", len(processedItems))
 	return &contentResp, processedItems, nil
-}
-
-// ProcessContentItem is a placeholder for the function that acts on parsed content.
-func ProcessContentItem(content SharedModels.ProcessedContentSchema) {
-	log.Printf("Processing item ID: %d, Type: %s, Enabled: %t", content.ID, content.Type, content.Enable)
-	// Add your logic here based on content.Type and content.Details
-	switch v := content.Details.(type) {
-	case SharedModels.LocalAdvertisementSchema:
-		log.Printf("Local Advertisement: FileLink: %s, SkipDuration: %d", v.FileLink, v.SkipDuration)
-		// Perform actions for LocalAdvertisementContent
-	case SharedModels.LocalSliderSchema:
-		log.Printf("Local Slider: ImageURL: %s, Num LocalTabIDs: %d", v.ImageURL, len(v.LocalTabIDs))
-		// Perform actions for LocalSliderContent
-	// Add cases for other types
-	default:
-		log.Printf("Cannot perform specific action for type %T", v)
-	}
 }

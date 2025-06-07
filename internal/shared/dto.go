@@ -55,9 +55,10 @@ type PollQuestionDTO struct {
 
 // AdvertisementLink is for the 'link' field in Advertisement
 type AdvertisementLink struct {
-	PlayLink string `json:"playLink"`
-	FileHash string `json:"fileHash"`
-	LinkType string `json:"linkType"`
+	PlayLink     string `json:"playLink"`
+	FileHash     string `json:"fileHash"`
+	LinkType     string `json:"linkType"`
+	OriginalLink string `json:"originalLink"`
 }
 
 // AlbumImage is for the 'image' field in Album
@@ -451,7 +452,7 @@ type Video struct {
 
 type Updater struct {
 	ContentId         int64 `gorm:"primaryKey;type:bigint;column:contentId"`
-	LastFromTimeStamp int64 `gorm:"not null;type:bigint;column:lastFromTimeStamp"`
+	LastFromTimeStamp int64 `gorm:"not null;default:0;type:bigint;column:lastFromTimeStamp"`
 	UniqueFlag        bool  `gorm:"not null;default:false;column:uniqueFlag;index:,unique"`
 }
 
