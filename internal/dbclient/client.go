@@ -71,6 +71,8 @@ type DBClient interface {
 	// - Count(ctx context.Context, model interface{}, conditions ...interface{}) (int64, error)
 	// - Pluck(ctx context.Context, model interface{}, fieldName string, dest interface{}, conditions ...interface{}) error
 	// - Advanced querying with QueryOptions or a builder pattern.
+	CreateWithAssosiate(ctx context.Context, model interface{},
+		assosiation string, assosiate interface{}) error
 }
 
 // QueryResult (can remain the same for ExecRaw)

@@ -57,24 +57,112 @@ func FetchAndProcessContentUpdates(apiClientInstance *ApiClient.APIClient,
 	return nil
 
 }
-
-// ProcessContentItem is a placeholder for the function that acts on parsed content.
 func ProcessContentItem(content SharedModels.ProcessedContentSchema,
-	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) {
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
 	log.Printf("Processing item ID: %d, Type: %s, Enabled: %t", content.ID, content.Type, content.Enable)
-	// Add your logic here based on content.Type and content.Details
 
 	switch v := content.Details.(type) {
 	case SharedModels.LocalAdvertisementSchema:
-		log.Printf("Local Advertisement: FileLink: %s, SkipDuration: %d", v.FileLink, v.SkipDuration)
-		ProcessLocalAdvertisement(content, dbConnection, apiClient)
-		// case SharedModels.LocalSliderSchema:
+		return ProcessLocalAdvertisement(content, dbConnection, apiClient)
+	case SharedModels.LocalPageSchema:
+		return ProcessLocalPage(content, dbConnection)
+	case SharedModels.LocalTabSchema:
+		return ProcessLocalTab(content, dbConnection)
+	case SharedModels.LocalSliderSchema:
+		return ProcessLocalSlider(content, dbConnection)
 	// 	log.Printf("Local Slider: ImageURL: %s, Num LocalTabIDs: %d", v.ImageURL, len(v.LocalTabIDs))
 	// 	// Perform actions for LocalSliderContent
 	// // Add cases for other types
 	default:
 		log.Printf("Cannot perform specific action for type %T", v)
 	}
+
+	return nil
+}
+
+func ProcessLocalSlider(content SharedModels.ProcessedContentSchema, dbConnection dbclient.DBClient) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+	defer cancel()
+
+	localSlider := SharedModels.Slider{}
+	detail := content.Details.(SharedModels.LocalSliderSchema)
+
+	localSlider.ContentId = content.ID
+	localSlider.ButtonTitle = detail.ButtonTitle
+	localSlider.Image.ImageURL = detail.ImageURL
+	localSlider.Image.LogoImageUrl = detail.LogoImageURL
+	localSlider.Image.MediumImageUrl = &detail.MediumImageURL
+	localSlider.Image.SmallImageUrl = &detail.SmallImageURL
+	localSlider.Link = detail.Link
+
+	err := dbConnection.Save(ctx, &localSlider)
+	if err != nil {
+		return cstmerr.NewProcessError("failed to create slider", err)
+	}
+	if len(detail.LocalTabIDs) > 0 {
+		tabs := make([]*SharedModels.Tab, len(detail.LocalTabIDs))
+		for index, value := range detail.LocalTabIDs {
+			tab := SharedModels.Tab{}
+			tab.ContentId = int64(value)
+			tabs[index] = &tab
+		}
+
+		err = dbConnection.CreateWithAssosiate(ctx, &localSlider, "Tabs", &tabs)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create assosiate tab page", err)
+		}
+	}
+	return nil
+}
+
+func ProcessLocalTab(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+	defer cancel()
+
+	localTab := SharedModels.Tab{}
+	detail := content.Details.(SharedModels.LocalTabSchema)
+	localTab.ContentId = content.ID
+	localTab.Name = detail.Name
+	localTab.Type = detail.Type
+
+	err := dbConnection.Save(ctx, &localTab)
+	if err != nil {
+		return cstmerr.NewProcessError("failed to create tab", err)
+	}
+	if len(detail.LocalPageIDs) > 0 {
+		pages := make([]*SharedModels.Page, len(detail.LocalPageIDs))
+
+		for index, value := range detail.LocalPageIDs {
+			page := SharedModels.Page{}
+			page.ContentId = int64(value)
+			pages[index] = &page
+		}
+		err := dbConnection.CreateWithAssosiate(ctx, &localTab, "Pages", &pages)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create assosiate tab page", err)
+		}
+	}
+
+	return nil
+}
+func ProcessLocalPage(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+	defer cancel()
+	localPage := SharedModels.Page{}
+	detail := content.Details.(SharedModels.LocalPageSchema)
+	localPage.ContentId = content.ID
+	localPage.Name = &detail.Name
+	localPage.Type = detail.Type
+	err := dbConnection.Save(ctx, &localPage)
+	if err != nil {
+		return cstmerr.NewProcessError("failed to save Local Page", err)
+	}
+	return nil
 }
 
 func ProcessLocalAdvertisement(
@@ -114,7 +202,8 @@ func ProcessLocalAdvertisement(
 
 		if err != nil {
 			log.Printf("error in downloading hash")
-			//TODO: handle download issues?
+			return cstmerr.NewDownloadError(
+				fmt.Sprintf("failed to download multiple times: %s", detail.FileLink))
 		}
 
 		localAdvertisement.SkipDuration = int32(detail.SkipDuration)

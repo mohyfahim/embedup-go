@@ -193,3 +193,9 @@ type RetryError struct{ BaseError }
 func NewRetryError(msg string, underlyingError error) *RetryError {
 	return &RetryError{BaseError{Msg: "Retry error: " + msg, Err: underlyingError}}
 }
+
+type ProcessError struct{ BaseError }
+
+func NewProcessError(msg string, underlyingError error) *ProcessError {
+	return &ProcessError{BaseError{Msg: "Process error: " + msg, Err: underlyingError}}
+}
