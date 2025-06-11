@@ -139,6 +139,12 @@ func NewFileIOError(msg string, underlyingErr error) *FileIOError {
 	return &FileIOError{BaseError{Msg: "I/O error during file operation: " + msg, Err: underlyingErr}}
 }
 
+type FileDeleteError struct{ BaseError }
+
+func NewFileDeleteError(msg string, underlyingErr error) *FileDeleteError {
+	return &FileDeleteError{BaseError{Msg: "File delete error: " + msg, Err: underlyingErr}}
+}
+
 type DBError struct{ BaseError }
 
 func NewDBError(msg string, underlyingErr error) *DBError {
@@ -199,3 +205,15 @@ type ProcessError struct{ BaseError }
 func NewProcessError(msg string, underlyingError error) *ProcessError {
 	return &ProcessError{BaseError{Msg: "Process error: " + msg, Err: underlyingError}}
 }
+
+const (
+	PROCESS_DOWNLOAD_ERROR     = "Process Error in downloading %s"
+	PROCESS_HASH_ERROR         = "unable to calculate md5 hash"
+	PROCESS_DELETE_ENTITY      = "unable to delete entity"
+	PROCESS_DELETE_FILE        = "unable to delete file"
+	PROCESS_FIND_ENTITY        = "unable to find entity"
+	PROCESS_CREATE_ERROR       = "failed to create entity"
+	PROCESS_FIND_DIRECTORY     = "unable to find directories inside of %s"
+	PROCESS_FIND_SUB_DIRECTORY = "unable to find subdirectory inside"
+	PROCESS_HASH_FIND          = "unable to get hash of file from server"
+)

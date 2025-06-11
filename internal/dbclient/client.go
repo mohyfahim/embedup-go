@@ -67,11 +67,10 @@ type DBClient interface {
 	// RunInTransaction executes a function within a database transaction.
 	RunInTransaction(ctx context.Context, fn func(ctx context.Context, txClient DBClient) error) error
 
-	// TODO: Consider adding methods for:
-	// - Count(ctx context.Context, model interface{}, conditions ...interface{}) (int64, error)
-	// - Pluck(ctx context.Context, model interface{}, fieldName string, dest interface{}, conditions ...interface{}) error
-	// - Advanced querying with QueryOptions or a builder pattern.
-	CreateWithAssosiate(ctx context.Context, model interface{},
+	CreateAssosiate(ctx context.Context, model interface{},
+		assosiation string, assosiate interface{}) error
+
+	DeleteAssosiate(ctx context.Context, model interface{},
 		assosiation string, assosiate interface{}) error
 }
 

@@ -261,25 +261,25 @@ type Music struct {
 }
 
 type Movie struct {
-	ContentId        int64        `gorm:"primaryKey;type:bigint;column:contentId"`
-	NameFa           string       `gorm:"not null;type:varchar;column:nameFa"`
-	Enable           bool         `gorm:"default:true;not null;column:enable"`
-	EntityId         *int64       `gorm:"type:bigint;column:entityId"`
-	PostId           *int64       `gorm:"type:bigint;column:postId"`
-	NameEn           *string      `gorm:"type:varchar;column:nameEn"`
-	Description      string       `gorm:"not null;type:varchar;column:description"`
-	Image            MovieImage   `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
-	Link             MovieLink    `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:link"`
-	Ages             *int         `gorm:"column:ages"`
-	Company          *string      `gorm:"type:varchar;column:company"`
-	ImdbCode         *string      `gorm:"type:varchar;column:imdbCode"`
-	ImdbRate         *float64     `gorm:"type:real;column:imdbRate"`
-	YearsOfBroadcast *int         `gorm:"type:integer;column:yearsOfBroadcast"`
-	Duration         *int         `gorm:"column:duration"`
-	PlayLink         *string      `gorm:"type:varchar;column:playLink"`
-	FileHash         *string      `gorm:"type:varchar;column:fileHash"`
-	Genres           []MovieGenre `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
-	Casts            []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
+	ContentId        int64      `gorm:"primaryKey;type:bigint;column:contentId"`
+	NameFa           string     `gorm:"not null;type:varchar;column:nameFa"`
+	Enable           bool       `gorm:"default:true;not null;column:enable"`
+	EntityId         *int64     `gorm:"type:bigint;column:entityId"`
+	PostId           *int64     `gorm:"type:bigint;column:postId"`
+	NameEn           *string    `gorm:"type:varchar;column:nameEn"`
+	Description      string     `gorm:"not null;type:varchar;column:description"`
+	Image            MovieImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
+	Link             MovieLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:link"`
+	Ages             *int       `gorm:"column:ages"`
+	Company          *string    `gorm:"type:varchar;column:company"`
+	ImdbCode         *string    `gorm:"type:varchar;column:imdbCode"`
+	ImdbRate         *float64   `gorm:"type:real;column:imdbRate"`
+	YearsOfBroadcast *int       `gorm:"type:integer;column:yearsOfBroadcast"`
+	Duration         *int       `gorm:"column:duration"`
+	// PlayLink         *string      `gorm:"type:varchar;column:playLink"`
+	// FileHash *string      `gorm:"type:varchar;column:fileHash"`
+	Genres []MovieGenre `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
+	Casts  []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
 }
 
 type Page struct {
@@ -325,10 +325,10 @@ type PodcastAlbum struct {
 }
 
 type Poll struct {
-	ContentId int64             `gorm:"primaryKey;type:bigint"`
-	Questions []PollQuestionDTO `gorm:"not null;type:jsonb;serializer:json"` // Needs PollQuestionDTO defined
-	Title     string            `gorm:"not null; type:varchar"`
-	Enable    bool              `gorm:"not null"`
+	ContentId int64               `gorm:"primaryKey;type:bigint"`
+	Questions []LocalPollQuestion `gorm:"not null;type:jsonb;serializer:json"` // Needs PollQuestionDTO defined
+	Title     string              `gorm:"not null; type:varchar"`
+	Enable    bool                `gorm:"not null"`
 }
 
 // type User struct {

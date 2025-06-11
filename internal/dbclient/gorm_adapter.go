@@ -69,7 +69,7 @@ func NewGORMAdapter(cfg *config.DatabaseConfig) *GORMAdapter {
 	}
 }
 
-func (ga *GORMAdapter) CreateWithAssosiate(ctx context.Context, model interface{},
+func (ga *GORMAdapter) CreateAssosiate(ctx context.Context, model interface{},
 	assosiation string, assosiate interface{}) error {
 	if ga.db == nil {
 		return cstmerr.NewDBError("database not connected (GORM)", nil)
@@ -77,6 +77,18 @@ func (ga *GORMAdapter) CreateWithAssosiate(ctx context.Context, model interface{
 	result := ga.db.WithContext(ctx).Model(model).Association(assosiation).Append(assosiate)
 	if result != nil {
 		return cstmerr.NewDBQueryError("GORM Save failed", result)
+	}
+	return nil
+}
+
+func (ga *GORMAdapter) DeleteAssosiate(ctx context.Context, model interface{},
+	assosiation string, assosiate interface{}) error {
+	if ga.db == nil {
+		return cstmerr.NewDBError("database not connected (GORM)", nil)
+	}
+	result := ga.db.WithContext(ctx).Model(model).Association(assosiation).Delete(assosiate)
+	if result != nil {
+		return cstmerr.NewDBQueryError("GORM Delete failed", result)
 	}
 	return nil
 }
@@ -351,8 +363,11 @@ func (gta *gormTxAdapter) Create(ctx context.Context, model interface{}) error {
 func (gta *gormTxAdapter) Save(ctx context.Context, model interface{}) error {
 	return gta.tx.WithContext(ctx).Save(model).Error
 }
-func (gta *gormTxAdapter) CreateWithAssosiate(ctx context.Context, model interface{}, assosiation string, assosiate interface{}) error {
+func (gta *gormTxAdapter) CreateAssosiate(ctx context.Context, model interface{}, assosiation string, assosiate interface{}) error {
 	return gta.tx.WithContext(ctx).Model(model).Association(assosiation).Append(assosiate)
+}
+func (gta *gormTxAdapter) DeleteAssosiate(ctx context.Context, model interface{}, assosiation string, assosiate interface{}) error {
+	return gta.tx.WithContext(ctx).Model(model).Association(assosiation).Delete(assosiate)
 }
 func (gta *gormTxAdapter) Updates(ctx context.Context, modelWithPK interface{}, data interface{}) error {
 	return gta.tx.WithContext(ctx).Model(modelWithPK).Updates(data).Error
