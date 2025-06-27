@@ -210,21 +210,22 @@ func (ac *APIClient) DownloadFileWithRetry(url string, destinationPath string) e
 	return nil
 }
 
-func (ac *APIClient) GetFileInformation(url string) (SharedModels.FileInformation, error) {
-	info := SharedModels.FileInformation{}
+func (ac *APIClient) GetFileInformation(url string, info *SharedModels.FileInformation) error {
+
 	headOpts := &RequestOptions{} // No special options needed for this HEAD
 	headResp, err := ac.client.Head(url, headOpts)
 	if err != nil {
 		log.Printf("HEAD request for download failed: %v", err)
-		return info, err
+		return err
 	}
 	hash := headResp.Headers.Get("x-content-md5")
 	if hash == "" {
-		return info, cstmerr.NewProcessError(cstmerr.PROCESS_HASH_FIND, nil)
+		info.MD5 = SharedModels.CalculateStringMD5(url)
+	} else {
+		info.MD5 = hash
 	}
-	info.MD5 = hash
 
-	return info, nil
+	return nil
 }
 
 // ReportStatus sends a status update to the API.

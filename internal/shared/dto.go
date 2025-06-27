@@ -362,6 +362,8 @@ type Section struct {
 	Action     *string `gorm:"type:varchar;"`
 	CardType   *string `gorm:"type:varchar;"`
 	Priority   *int32
+	Tabs       []*Tab `gorm:"many2many:tab_sections_section;"`
+
 	// Contents   []SectionContent `gorm:"foreignKey:SectionContentId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"` // Assuming SectionContent has SectionContentId
 }
 

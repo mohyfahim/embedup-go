@@ -8,6 +8,7 @@ import (
 	SharedModels "embedup-go/internal/shared"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -73,10 +74,11 @@ func DownloadImage(apiclient *ApiClient.APIClient, url string, dir ...string) (s
 		log.Printf("Error in creating path %s: %v", destinationPath, err)
 	}
 
-	fileInformation, err := apiclient.GetFileInformation(url)
+	fileInformation := SharedModels.FileInformation{}
+	err = apiclient.GetFileInformation(url, &fileInformation)
 
 	if err != nil {
-		fileInformation.MD5 = SharedModels.CalculateStringMD5(url)
+		return "", "", cstmerr.NewProcessError(cstmerr.PROCESS_FILE_INFO, err)
 	}
 
 	fileNameWithPrefix := fileInformation.MD5 + ".jpg"
@@ -109,10 +111,11 @@ func DownloadVideo(apiclient *ApiClient.APIClient, url string, dir ...string) (s
 		log.Printf("Error in creating path %s: %v", destinationPath, err)
 	}
 
-	fileInformation, err := apiclient.GetFileInformation(url)
+	fileInformation := SharedModels.FileInformation{}
+	err = apiclient.GetFileInformation(url, &fileInformation)
 
 	if err != nil {
-		fileInformation.MD5 = SharedModels.CalculateStringMD5(url)
+		return "", "", cstmerr.NewProcessError(cstmerr.PROCESS_FILE_INFO, err)
 	}
 
 	fileNameWithPrefix := fileInformation.MD5 + ".mp4"
@@ -131,45 +134,72 @@ func DownloadVideo(apiclient *ApiClient.APIClient, url string, dir ...string) (s
 	return destinationFile, fileNameWithPrefix, nil
 }
 
-func DownloadZippedVideo(apiclient *ApiClient.APIClient, url string, dir ...string) (string, string, error) {
+func GetDirectorySize(path string) (int64, error) {
+	var totalSize int64
+	err := filepath.Walk(path, func(filePath string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			totalSize += info.Size()
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("error walking directory: %w", err)
+	}
+	return totalSize, nil
+}
 
+func CheckExtractedExist(apiclient *ApiClient.APIClient,
+	downloadLink string, fileInformation *SharedModels.FileInformation) (bool, error) {
 	contentBasePath := os.Getenv("PODBOX_UPDATE_CONTENT_BASE_PATH")
 	if contentBasePath == "" {
 		contentBasePath = "/mnt/sdcard/assets/"
 	}
-	destinationPath := filepath.Join(append([]string{contentBasePath, "videos"}, dir...)...)
+	destinationPath := filepath.Join(contentBasePath, "videos")
 
-	log.Printf("destination path for download file : %s \n", destinationPath)
-	err := SharedModels.CheckAndCreateDir(destinationPath)
-	if err != nil {
-		log.Printf("Error in creating path %s: %v", destinationPath, err)
-	}
-
-	fileInformation, err := apiclient.GetFileInformation(url)
+	err := apiclient.GetFileInformation(downloadLink, fileInformation)
 
 	if err != nil {
-		fileInformation.MD5 = SharedModels.CalculateStringMD5(url)
+		return false, cstmerr.NewProcessError(cstmerr.PROCESS_FILE_INFO, err)
 	}
 
-	fileNameWithPrefix := fileInformation.MD5 + ".zip"
+	fileInformation.FileNameWithPrefix = fileInformation.MD5 + ".zip"
+	fileInformation.DestinationPath = filepath.Join(destinationPath, fileInformation.FileNameWithPrefix)
+	fileInformation.DestinationExtracted = filepath.Join(destinationPath, fileInformation.MD5)
 
-	destinationFile := filepath.Join(destinationPath, fileNameWithPrefix)
-	log.Printf("destination file: %s", destinationFile)
+	info, err := os.Stat(fileInformation.DestinationExtracted)
+	if err != nil && os.IsNotExist(err) {
+		log.Printf("Error in finding directory %s: %v\n", fileInformation.DestinationExtracted, err)
+		return false, nil
+	} else if err != nil {
+		log.Printf("Error in finding directory %s: %v\n", fileInformation.DestinationExtracted, err)
+		return false, err
+	} else if info.IsDir() {
+		log.Printf("Directory '%s' exists.\n", fileInformation.DestinationExtracted)
+		return true, nil
+	}
+	log.Printf("Error in finding directory %s: %v\n", fileInformation.DestinationExtracted, err)
+	return false, nil
+}
 
-	err = apiclient.DownloadFileWithRetry(url, destinationFile)
+func DownloadZippedVideo(apiclient *ApiClient.APIClient, url string,
+	fileInformation *SharedModels.FileInformation, dir ...string) error {
+
+	err := apiclient.DownloadFileWithRetry(url, fileInformation.DestinationPath)
 
 	if err != nil {
 		log.Printf("error in downloading hash")
-		return "", "", cstmerr.NewDownloadError(
+		return cstmerr.NewDownloadError(
 			fmt.Sprintf("failed to download multiple times: %s", url))
 	}
-	destinationExtracted := filepath.Join(destinationPath, fileInformation.MD5)
-	//TODO: enable this
-	// err = SharedModels.UnzipFile(destinationFile, destinationExtracted)
-	// if err != nil {
-	// 	return "", "", err
-	// }
-	return destinationExtracted, fileNameWithPrefix, nil
+
+	err = SharedModels.UnzipFile(fileInformation.DestinationPath, fileInformation.DestinationExtracted)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func FetchAndProcessContentUpdates(apiClientInstance *ApiClient.APIClient,
@@ -206,13 +236,13 @@ func FetchAndProcessContentUpdates(apiClientInstance *ApiClient.APIClient,
 	}
 
 	//TODO: uncomment
-	// ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
-	// defer cancel()
-	// err = dbConnection.Save(ctx, &updater)
-	// if err != nil {
-	// 	log.Printf("Error on Updating lastFromTimestamp: %v", err)
-	// 	return err
-	// }
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+	defer cancel()
+	err = dbConnection.Save(ctx, &updater)
+	if err != nil {
+		log.Printf("Error on Updating lastFromTimestamp: %v", err)
+		return err
+	}
 
 	return nil
 
@@ -224,18 +254,18 @@ func ProcessContentItem(content SharedModels.ProcessedContentSchema,
 	switch v := content.Details.(type) {
 	case SharedModels.LocalAdvertisementSchema:
 		return ProcessLocalAdvertisement(content, dbConnection, apiClient)
-	// case SharedModels.LocalPageSchema:
-	// 	return ProcessLocalPage(content, dbConnection)
-	// case SharedModels.LocalTabSchema:
-	// 	return ProcessLocalTab(content, dbConnection)
-	// case SharedModels.LocalSliderSchema:
-	// 	return ProcessLocalSlider(content, dbConnection, apiClient)
-	// case SharedModels.LocalMovieGenreSchema:
-	// 	return ProcessLocalMovieGenre(content, dbConnection, apiClient)
-	// case SharedModels.LocalSectionSchema:
-	// 	return ProcessLocalSection(content, dbConnection)
-	// case SharedModels.LocalPollSchema:
-	// 	return ProcessLocalPoll(content, dbConnection)
+	case SharedModels.LocalPageSchema:
+		return ProcessLocalPage(content, dbConnection)
+	case SharedModels.LocalTabSchema:
+		return ProcessLocalTab(content, dbConnection)
+	case SharedModels.LocalSliderSchema:
+		return ProcessLocalSlider(content, dbConnection, apiClient)
+	case SharedModels.LocalMovieGenreSchema:
+		return ProcessLocalMovieGenre(content, dbConnection, apiClient)
+	case SharedModels.LocalSectionSchema:
+		return ProcessLocalSection(content, dbConnection)
+	case SharedModels.LocalPollSchema:
+		return ProcessLocalPoll(content, dbConnection)
 	case SharedModels.LocalMovieSchema:
 		return ProcessLocalMovie(content, dbConnection, apiClient)
 	default:
@@ -247,9 +277,6 @@ func ProcessContentItem(content SharedModels.ProcessedContentSchema,
 
 func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
 	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
-	defer cancel()
 
 	localMovie := SharedModels.Movie{}
 	detail := content.Details.(SharedModels.LocalMovieSchema)
@@ -271,15 +298,24 @@ func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
 		localMovie.Genres = movieDetail.Genres
 		localMovie.ImdbCode = &movieDetail.IMDBCode
 		localMovie.ImdbRate = movieDetail.IMDBRate
-		//TODO: download the video if the extracted content does not exist on fs
-		extractedPath, podspaceHash, err := DownloadZippedVideo(apiClient, detail.FileLink, "")
+
+		fileInformation := SharedModels.FileInformation{}
+
+		checkExtracted, err := CheckExtractedExist(apiClient, detail.FileLink, &fileInformation)
 		if err != nil {
 			return err
 		}
+		if !checkExtracted {
+			err := DownloadZippedVideo(apiClient, detail.FileLink, &fileInformation, "")
+			if err != nil {
+				return err
+			}
+		}
 
-		entries, err := os.ReadDir(extractedPath)
+		entries, err := os.ReadDir(fileInformation.DestinationExtracted)
 		if err != nil {
-			return cstmerr.NewProcessError(fmt.Sprintf(cstmerr.PROCESS_FIND_DIRECTORY, extractedPath), err)
+			return cstmerr.NewProcessError(fmt.Sprintf(cstmerr.PROCESS_FIND_DIRECTORY,
+				fileInformation.DestinationExtracted), err)
 		}
 
 		var destinationFile string
@@ -295,14 +331,15 @@ func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
 		}
 
 		masterFile := fmt.Sprintf("%s/master_%s.m3u8", destinationSub, destinationSub)
-		destinationFile = filepath.Join(extractedPath, masterFile)
+		destinationFile = filepath.Join(fileInformation.DestinationExtracted, masterFile)
 
 		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
 		if err != nil {
 			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
 		}
 		localMovie.Link.FileHash = hex.EncodeToString(hash)
-		localMovie.Link.PlayLink = filepath.Join(podspaceHash[0:len(podspaceHash)-4], masterFile)
+		localMovie.Link.PlayLink = filepath.Join(
+			fileInformation.FileNameWithPrefix[0:len(fileInformation.FileNameWithPrefix)-4], masterFile)
 		log.Printf("debug: playlink %s", localMovie.Link.PlayLink)
 
 		localMovie.NameEn = &movieDetail.NameEn
@@ -331,6 +368,9 @@ func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
 				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, movieDetail.MobileBannerURL), err)
 		}
 		localMovie.Image.MobileBannerUrl = &mobileBannerUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
 
 		err = dbConnection.Save(ctx, &localMovie)
 		if err != nil {

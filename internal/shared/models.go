@@ -112,7 +112,63 @@ type LocalMovieContentDetailSchema struct {
 	DiscountPercent  int                    `json:"discountPercent"`
 	MultiProvider    bool                   `json:"multiProvider"`
 }
+
+type LocalSeriesSeasonContentDetailSchema struct {
+	ID            int          `json:"id"`
+	Description   *string      `json:"description,omitempty"`
+	ImageURL      string       `json:"imageUrl"`
+	NameEn        string       `json:"nameEn"`
+	Name          string       `json:"name"`
+	UserPostInfo  UserPostInfo `json:"userPostInfo"`
+	NumOfLikes    int          `json:"numOfLikes"`
+	NumOfDisLikes int          `json:"numOfDisLikes"`
+	LikePercent   int          `json:"likePercent"`
+	Index         int          `json:"index"`
+}
+
+type LocalSeriesContentDetailSchema struct {
+	ID               int                    `json:"id"`
+	Description      string                 `json:"description"`
+	ImageURL         string                 `json:"imageUrl"`
+	PostID           *int64                 `json:"postId,omitempty"`
+	NameEn           string                 `json:"nameEn"`
+	NameFa           string                 `json:"nameFa"`
+	Casts            []PersonDTO            `json:"casts"`
+	Ages             int                    `json:"ages"`
+	Company          string                 `json:"company"`
+	IMDBCode         string                 `json:"imdbCode"`
+	IMDBRate         *float64               `json:"imdbRate,omitempty"`
+	Summary          *string                `json:"summary,omitempty"`
+	YearsOFBroadcast int                    `json:"yearsOfBroadcast"`
+	Genres           []MovieGenre           `json:"genres"`
+	Galleries        []*string              `json:"galleries"`
+	Counteries       []*Countery            `json:"counteries"`
+	BannerURL        string                 `json:"bannerUrl"`
+	MobileBannerURL  string                 `json:"mobileBannerUrl"`
+	ShowTech         []*LocalShowTechSchema `json:"showTech"`
+	UserPostInfo     UserPostInfo           `json:"userPostInfo"`
+	NumOfLikes       int                    `json:"numOfLikes"`
+	NumOfDisLikes    int                    `json:"numOfDisLikes"`
+	LikePercent      int                    `json:"likePercent"`
+	Price            int                    `json:"price"`
+	Saleable         bool                   `json:"saleable"`
+	DiscountPercent  int                    `json:"discountPercent"`
+}
 type LocalMovieContentSchema struct {
+	Type      string                        `json:"type"`
+	Content   LocalMovieContentDetailSchema `json:"content"`
+	IsBuyed   bool                          `json:"isBuyed"`
+	BuyedTime int                           `json:"buyedTime"`
+}
+
+type LocalSeriesContentSchema struct {
+	Type      string                        `json:"type"`
+	Content   LocalMovieContentDetailSchema `json:"content"`
+	IsBuyed   bool                          `json:"isBuyed"`
+	BuyedTime int                           `json:"buyedTime"`
+}
+
+type LocalSeriesSeasonContentSchema struct {
 	Type      string                        `json:"type"`
 	Content   LocalMovieContentDetailSchema `json:"content"`
 	IsBuyed   bool                          `json:"isBuyed"`
