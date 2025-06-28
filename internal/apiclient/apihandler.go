@@ -499,6 +499,189 @@ func (ac *APIClient) FetchContentUpdates(
 	return &contentResp, processedItems, nil
 }
 
+func (ac *APIClient) GetPodcastParentDetail(movieId int) (SharedModels.LocalPodcastParentContentDetailSchema, error) {
+
+	var contentResp SharedModels.LocalPodcastParentContentSchema
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		SuccessResult: &contentResp,
+		ErrorResult:   &apiErr,
+	}
+	url, err := url.JoinPath(ac.config.ContentDetailAPIURL, fmt.Sprint(movieId))
+	if err != nil {
+		log.Printf("Error joining path %s and movie id %d :%v",
+			ac.config.ContentDetailAPIURL, movieId, err)
+
+		return contentResp.Content, err
+	}
+
+	resp, err := ac.client.Get(url, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return contentResp.Content, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+	return contentResp.Content, nil
+}
+
+func (ac *APIClient) GetSeriesEpisodeDetail(movieId int) (SharedModels.LocalSeriesEpisodeContentDetailSchema, error) {
+
+	var contentResp SharedModels.LocalSeriesEpisodeContentSchema
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		SuccessResult: &contentResp,
+		ErrorResult:   &apiErr,
+	}
+	url, err := url.JoinPath(ac.config.ContentDetailAPIURL, fmt.Sprint(movieId))
+	if err != nil {
+		log.Printf("Error joining path %s and movie id %d :%v",
+			ac.config.ContentDetailAPIURL, movieId, err)
+
+		return contentResp.Content, err
+	}
+
+	resp, err := ac.client.Get(url, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return contentResp.Content, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+	return contentResp.Content, nil
+
+}
+
+func (ac *APIClient) GetSeriesSeasonDetail(movieId int) (SharedModels.LocalSeriesSeasonContentDetailSchema, error) {
+
+	var contentResp SharedModels.LocalSeriesSeasonContentSchema
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		SuccessResult: &contentResp,
+		ErrorResult:   &apiErr,
+	}
+	url, err := url.JoinPath(ac.config.ContentDetailAPIURL, fmt.Sprint(movieId))
+	if err != nil {
+		log.Printf("Error joining path %s and movie id %d :%v",
+			ac.config.ContentDetailAPIURL, movieId, err)
+
+		return contentResp.Content, err
+	}
+
+	resp, err := ac.client.Get(url, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return contentResp.Content, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+	return contentResp.Content, nil
+
+}
+
+func (ac *APIClient) GetSeriesDetail(movieId int) (SharedModels.LocalSeriesContentDetailSchema, error) {
+
+	var contentResp SharedModels.LocalSeriesContentSchema
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		SuccessResult: &contentResp,
+		ErrorResult:   &apiErr,
+	}
+	url, err := url.JoinPath(ac.config.ContentDetailAPIURL, fmt.Sprint(movieId))
+	if err != nil {
+		log.Printf("Error joining path %s and movie id %d :%v",
+			ac.config.ContentDetailAPIURL, movieId, err)
+
+		return contentResp.Content, err
+	}
+
+	resp, err := ac.client.Get(url, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return contentResp.Content, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+	return contentResp.Content, nil
+
+}
+
 func (ac *APIClient) GetMovieDetail(movieId int) (SharedModels.LocalMovieContentDetailSchema, error) {
 
 	var contentResp SharedModels.LocalMovieContentSchema

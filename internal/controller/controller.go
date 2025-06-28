@@ -236,13 +236,13 @@ func FetchAndProcessContentUpdates(apiClientInstance *ApiClient.APIClient,
 	}
 
 	//TODO: uncomment
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
-	defer cancel()
-	err = dbConnection.Save(ctx, &updater)
-	if err != nil {
-		log.Printf("Error on Updating lastFromTimestamp: %v", err)
-		return err
-	}
+	// ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+	// defer cancel()
+	// err = dbConnection.Save(ctx, &updater)
+	// if err != nil {
+	// 	log.Printf("Error on Updating lastFromTimestamp: %v", err)
+	// 	return err
+	// }
 
 	return nil
 
@@ -252,26 +252,281 @@ func ProcessContentItem(content SharedModels.ProcessedContentSchema,
 	log.Printf("Processing item ID: %d, Type: %s, Enabled: %t", content.ID, content.Type, content.Enable)
 
 	switch v := content.Details.(type) {
-	case SharedModels.LocalAdvertisementSchema:
-		return ProcessLocalAdvertisement(content, dbConnection, apiClient)
-	case SharedModels.LocalPageSchema:
-		return ProcessLocalPage(content, dbConnection)
-	case SharedModels.LocalTabSchema:
-		return ProcessLocalTab(content, dbConnection)
-	case SharedModels.LocalSliderSchema:
-		return ProcessLocalSlider(content, dbConnection, apiClient)
-	case SharedModels.LocalMovieGenreSchema:
-		return ProcessLocalMovieGenre(content, dbConnection, apiClient)
-	case SharedModels.LocalSectionSchema:
-		return ProcessLocalSection(content, dbConnection)
-	case SharedModels.LocalPollSchema:
-		return ProcessLocalPoll(content, dbConnection)
-	case SharedModels.LocalMovieSchema:
-		return ProcessLocalMovie(content, dbConnection, apiClient)
+	// case SharedModels.LocalAdvertisementSchema:
+	// 	return ProcessLocalAdvertisement(content, dbConnection, apiClient)
+	// case SharedModels.LocalPageSchema:
+	// 	return ProcessLocalPage(content, dbConnection)
+	// case SharedModels.LocalTabSchema:
+	// 	return ProcessLocalTab(content, dbConnection)
+	// case SharedModels.LocalSliderSchema:
+	// 	return ProcessLocalSlider(content, dbConnection, apiClient)
+	// case SharedModels.LocalMovieGenreSchema:
+	// 	return ProcessLocalMovieGenre(content, dbConnection, apiClient)
+	// case SharedModels.LocalSectionSchema:
+	// 	return ProcessLocalSection(content, dbConnection)
+	// case SharedModels.LocalPollSchema:
+	// 	return ProcessLocalPoll(content, dbConnection)
+	// case SharedModels.LocalMovieSchema:
+	// 	return ProcessLocalMovie(content, dbConnection, apiClient)
+	// case SharedModels.LocalSeriesSchema:
+	// 	return ProcessLocalSeries(content, dbConnection, apiClient)
+	// case SharedModels.LocalSeriesSeasonSchema:
+	// 	return ProcessLocalSeriesSeason(content, dbConnection, apiClient)
+	// case SharedModels.LocalSeriesEpisodeSchema:
+	// 	return ProcessLocalEpisodeSeason(content, dbConnection, apiClient)
+	// case SharedModels.LocalSectionContentSchema:
+	// 	return ProcessLocalSectionContent(content, dbConnection)
+	case SharedModels.LocalPodcastParentSchema:
+		return ProcessLocalPodcastParent(content, dbConnection, apiClient)
+
 	default:
 		log.Printf("Cannot perform specific action for type %T", v)
 	}
 
+	return nil
+}
+
+func ProcessLocalPodcastParent(content SharedModels.ProcessedContentSchema, dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+
+	localPodcastParent := SharedModels.PodcastAlbum{}
+	detail := content.Details.(SharedModels.LocalPodcastParentSchema)
+	localPodcastParent.ContentId = content.ID
+	if content.Enable {
+		podcastParentDetail, err := apiClient.GetPodcastParentDetail(int(detail.PodcastParentID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localPodcastParent.EntityId = podcastParentDetail.ID
+		publishDate := time.UnixMilli(int64(podcastParentDetail.PublishDate))
+		localPodcastParent.PublishDate = &publishDate
+		localPodcastParent.Duration = podcastParentDetail.Duration
+		localPodcastParent.Name = podcastParentDetail.NameFa
+		localPodcastParent.Genre = podcastParentDetail.Genre
+		localPodcastParent.Agents = podcastParentDetail.Agents
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, podcastParentDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, podcastParentDetail.ImageURL), err)
+		}
+		localPodcastParent.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, podcastParentDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, podcastParentDetail.ImageURL), err)
+		}
+		localPodcastParent.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localPodcastParent)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create podcast parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalSectionContent(content SharedModels.ProcessedContentSchema, dbConnection dbclient.DBClient) error {
+
+	localSectionContent := SharedModels.SectionContent{}
+	detail := content.Details.(SharedModels.LocalSectionContentSchema)
+	localSectionContent.ContentId = content.ID
+	if content.Enable {
+		localSectionContent.EntityContentId = detail.EntityContentID
+		localSectionContent.EntityContentType = detail.EntityContentType
+		localSectionContent.Priority = detail.Priority
+		localSectionContent.SectionContentId = &detail.LocalSectionID
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err := dbConnection.Save(ctx, &localSectionContent)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create section content", err)
+		}
+
+	} else {
+		panic("not implemented")
+	}
+	return nil
+}
+
+func ProcessLocalEpisodeSeason(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+
+	localSeriesEpisode := SharedModels.SeriesEpisode{}
+	detail := content.Details.(SharedModels.LocalSeriesEpisodeSchema)
+	localSeriesEpisode.ContentId = content.ID
+	if content.Enable {
+		seriesEpisodeDetail, err := apiClient.GetSeriesEpisodeDetail(int(detail.EpisodeID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localSeriesEpisode.EntityId = &seriesEpisodeDetail.ID
+		localSeriesEpisode.Index = int64(seriesEpisodeDetail.Index)
+		localSeriesEpisode.Name = seriesEpisodeDetail.Name
+		localSeriesEpisode.NameEn = &seriesEpisodeDetail.NameEn
+		localSeriesEpisode.SeasonContentId = &detail.LocalSeasonID
+
+		fileInformation := SharedModels.FileInformation{}
+
+		checkExtracted, err := CheckExtractedExist(apiClient, detail.FileLink, &fileInformation)
+		if err != nil {
+			return err
+		}
+		if !checkExtracted {
+			err := DownloadZippedVideo(apiClient, detail.FileLink, &fileInformation, "")
+			if err != nil {
+				return err
+			}
+		}
+
+		entries, err := os.ReadDir(fileInformation.DestinationExtracted)
+		if err != nil {
+			return cstmerr.NewProcessError(fmt.Sprintf(cstmerr.PROCESS_FIND_DIRECTORY,
+				fileInformation.DestinationExtracted), err)
+		}
+
+		var destinationFile string
+		var destinationSub string
+		for _, entry := range entries {
+			if entry.IsDir() {
+				destinationSub = entry.Name()
+			}
+		}
+
+		if len(destinationSub) == 0 {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_CREATE_ERROR, nil)
+		}
+
+		masterFile := fmt.Sprintf("%s/master_%s.m3u8", destinationSub, destinationSub)
+		destinationFile = filepath.Join(fileInformation.DestinationExtracted, masterFile)
+
+		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+		}
+		localSeriesEpisode.Link.FileHash = hex.EncodeToString(hash)
+		localSeriesEpisode.Link.PlayLink = filepath.Join(
+			fileInformation.FileNameWithPrefix[0:len(fileInformation.FileNameWithPrefix)-4], masterFile)
+		log.Printf("debug: playlink %s", localSeriesEpisode.Link.PlayLink)
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, seriesEpisodeDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, seriesEpisodeDetail.ImageURL), err)
+		}
+		localSeriesEpisode.Image.ImageURL = &imageUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localSeriesEpisode)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create season", err)
+		}
+
+	} else {
+		panic("not implemented")
+	}
+	return nil
+}
+
+func ProcessLocalSeriesSeason(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localSeriesSeason := SharedModels.SeriesSeason{}
+	detail := content.Details.(SharedModels.LocalSeriesSeasonSchema)
+	localSeriesSeason.ContentId = content.ID
+	if content.Enable {
+		seriesSeasonDetail, err := apiClient.GetSeriesSeasonDetail(int(detail.SeasonID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localSeriesSeason.Index = int64(seriesSeasonDetail.Index)
+		localSeriesSeason.Name = seriesSeasonDetail.Name
+		localSeriesSeason.NameEn = &seriesSeasonDetail.NameEn
+		localSeriesSeason.EntityId = &seriesSeasonDetail.ID
+
+		localSeriesSeason.SeriesContentId = &detail.LocalSeriesID
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localSeriesSeason)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create season", err)
+		}
+
+	} else {
+		panic("not implemented")
+
+	}
+	return nil
+}
+
+func ProcessLocalSeries(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localSeries := SharedModels.Series{}
+	detail := content.Details.(SharedModels.LocalSeriesSchema)
+	localSeries.ContentId = content.ID
+	if content.Enable {
+		seriesDetail, err := apiClient.GetSeriesDetail(int(detail.SeriesID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localSeries.Ages = &seriesDetail.Ages
+		localSeries.Casts = seriesDetail.Casts
+		localSeries.Company = &seriesDetail.Company
+		localSeries.Description = seriesDetail.Description
+		localSeries.EntityId = &seriesDetail.ID
+
+		localSeries.Genres = seriesDetail.Genres
+		localSeries.ImdbCode = &seriesDetail.IMDBCode
+		localSeries.ImdbRate = seriesDetail.IMDBRate
+		localSeries.NameEn = &seriesDetail.NameEn
+		localSeries.NameFa = seriesDetail.NameFa
+		localSeries.PostId = seriesDetail.PostID
+		localSeries.YearsOfBroadcast = &seriesDetail.YearsOFBroadcast
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, seriesDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, seriesDetail.BannerURL), err)
+		}
+		localSeries.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, seriesDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, seriesDetail.ImageURL), err)
+		}
+		localSeries.Image.ImageURL = imageUrlPodspaceHash
+
+		_, mobileBannerUrlPodspaceHash, err := DownloadImage(apiClient, seriesDetail.MobileBannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, seriesDetail.MobileBannerURL), err)
+		}
+		localSeries.Image.MobileBannerUrl = &mobileBannerUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localSeries)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create slider", err)
+		}
+
+	} else {
+		panic("not implemented")
+
+	}
 	return nil
 }
 
@@ -378,6 +633,7 @@ func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
 		}
 
 	} else {
+		panic("not implemented")
 
 	}
 	return nil
@@ -400,6 +656,8 @@ func ProcessLocalPoll(content SharedModels.ProcessedContentSchema,
 			return cstmerr.NewProcessError(cstmerr.PROCESS_CREATE_ERROR, err)
 		}
 	} else {
+		panic("not implemented")
+
 		err := dbConnection.Delete(ctx, &localPoll)
 		if err != nil {
 			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
@@ -446,6 +704,7 @@ func ProcessLocalSection(content SharedModels.ProcessedContentSchema,
 			}
 		}
 	} else {
+		panic("not implemented")
 
 	}
 
@@ -481,6 +740,8 @@ func ProcessLocalMovieGenre(content SharedModels.ProcessedContentSchema,
 			return cstmerr.NewProcessError("failed to create slider", err)
 		}
 	} else {
+		panic("not implemented")
+
 		//TODO: handle image deletion from filespace
 		err := dbConnection.Delete(ctx, &localMovieGenre)
 		if err != nil {
@@ -558,6 +819,8 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 			}
 		}
 	} else {
+		panic("not implemented")
+
 		//TODO: handle assosiation
 		err := dbConnection.Delete(ctx, &localSlider)
 		if err != nil {
@@ -601,6 +864,8 @@ func ProcessLocalTab(content SharedModels.ProcessedContentSchema,
 			}
 		}
 	} else {
+		panic("not implemented")
+
 		//TODO: handle assosiation
 		err := dbConnection.Delete(ctx, &localTab)
 		if err != nil {
@@ -626,6 +891,8 @@ func ProcessLocalPage(content SharedModels.ProcessedContentSchema,
 			return cstmerr.NewProcessError("failed to save Local Page", err)
 		}
 	} else {
+		panic("not implemented")
+
 		err := dbConnection.Delete(ctx, &localPage)
 		if err != nil {
 			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
@@ -663,6 +930,8 @@ func ProcessLocalAdvertisement(
 		localAdvertisement.Link = localAdvertisementLink
 		dbConnection.Save(ctx, &localAdvertisement)
 	} else {
+		panic("not implemented")
+
 		//TODO: handle file deletion from filespace
 		err := dbConnection.First(ctx, &localAdvertisement)
 		if err != nil {

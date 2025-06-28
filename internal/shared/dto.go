@@ -311,14 +311,14 @@ type Podcast struct {
 }
 
 type PodcastAlbum struct {
-	ContentId   int64        `gorm:"primaryKey;type:bigint"`
-	EntityId    int64        `gorm:"type:bigint"`
-	Description string       `gorm:"default:'';not null;type:varchar"`
-	Ages        *int32       `gorm:"type:integer;default:0"`
-	Image       PodcastImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	Genre       PodcastGenre `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	Agents      []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
-	PublishDate *time.Time   `gorm:"type:timestamptz"`
+	ContentId   int64         `gorm:"primaryKey;type:bigint"`
+	EntityId    int64         `gorm:"type:bigint"`
+	Description string        `gorm:"default:'';not null;type:varchar"`
+	Ages        *int32        `gorm:"type:integer;default:0"`
+	Image       PodcastImage  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Genre       *PodcastGenre `gorm:"type:jsonb;serializer:json;default:'{}'"`
+	Agents      []*PersonDTO  `gorm:"type:jsonb;serializer:json;default:'[]'"`
+	PublishDate *time.Time    `gorm:"type:timestamptz"`
 	// Podcasts    []Podcast    `gorm:"foreignKey:PodcastAlbumId;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Duration int    `gorm:"not null"`
 	Name     string `gorm:"not null;not null;type:varchar"`
@@ -362,9 +362,8 @@ type Section struct {
 	Action     *string `gorm:"type:varchar;"`
 	CardType   *string `gorm:"type:varchar;"`
 	Priority   *int32
-	Tabs       []*Tab `gorm:"many2many:tab_sections_section;"`
-
-	// Contents   []SectionContent `gorm:"foreignKey:SectionContentId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"` // Assuming SectionContent has SectionContentId
+	Tabs       []*Tab            `gorm:"many2many:tab_sections_section;"`
+	Contents   []*SectionContent `gorm:"foreignKey:SectionContentId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"` // Assuming SectionContent has SectionContentId
 }
 
 type SectionContent struct {
@@ -372,49 +371,49 @@ type SectionContent struct {
 	EntityContentType string `gorm:"not null;type:varchar"`
 	EntityContentId   int64  `gorm:"not null;type:bigint"`
 	Priority          int    `gorm:"not null;default:0"`
-	// SectionContentId  *int64   // Foreign key to Section
-	SectionContentId *Section `gorm:"foreignKey:SectionContentId;column:sectionContentId"`
+	SectionContentId  *int64 // Foreign key to Section
+	// SectionContentId *Section `gorm:"foreignKey:SectionContentId;column:sectionContentId"`
 }
 
 type Series struct {
-	ContentId        int64        `gorm:"primaryKey;type:bigint"`
-	EntityId         *int64       `gorm:"type:bigint"`
-	PostId           *int64       `gorm:"type:bigint"`
-	NameFa           string       `gorm:"not null;type:varchar"`
-	NameEn           *string      `gorm:"type:varchar"`
-	Description      string       `gorm:"not null;type:varchar"`
-	Image            MovieImage   `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	Ages             *int32       `gorm:"type:integer"`
-	Company          *string      `gorm:"type:varchar"`
-	ImdbCode         *string      `gorm:"type:varchar"`
-	ImdbRate         *float64     `gorm:"type:real"`
-	YearsOfBroadcast *int32       `gorm:"type:integer"`
-	Genres           []MovieGenre `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
-	Casts            []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
-	// Seasons          []SeriesSeason `gorm:"foreignKey:SeriesContentId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"` // SeriesContentId in SeriesSeason
+	ContentId        int64          `gorm:"primaryKey;type:bigint"`
+	EntityId         *int           `gorm:"type:bigint"`
+	PostId           *int64         `gorm:"type:bigint"`
+	NameFa           string         `gorm:"not null;type:varchar"`
+	NameEn           *string        `gorm:"type:varchar"`
+	Description      string         `gorm:"not null;type:varchar"`
+	Image            MovieImage     `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Ages             *int           `gorm:"type:integer"`
+	Company          *string        `gorm:"type:varchar"`
+	ImdbCode         *string        `gorm:"type:varchar"`
+	ImdbRate         *float64       `gorm:"type:real"`
+	YearsOfBroadcast *int           `gorm:"type:integer"`
+	Genres           []MovieGenre   `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
+	Casts            []PersonDTO    `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
+	Seasons          []SeriesSeason `gorm:"foreignKey:SeriesContentId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"` // SeriesContentId in SeriesSeason
 }
 
 type SeriesSeason struct {
-	ContentId int64   `gorm:"primaryKey;type:bigint"`
-	Index     int64   `gorm:"not null;type:bigint"`
-	EntityId  *int64  `gorm:"type:bigint"`
-	Name      string  `gorm:"not null;type:varchar"`
-	NameEn    *string `gorm:"type:varchar"`
-	// SeriesContentId *int64          // Foreign Key to Series
-	SeriesContentId *Series `gorm:"foreignKey:SeriesContentId;column:seriesContentId"`
-	// Episodes        []SeriesEpisode `gorm:"foreignKey:SeasonContentId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ContentId       int64   `gorm:"primaryKey;type:bigint"`
+	Index           int64   `gorm:"not null;type:bigint"`
+	EntityId        *int    `gorm:"type:bigint"`
+	Name            string  `gorm:"not null;type:varchar"`
+	NameEn          *string `gorm:"type:varchar"`
+	SeriesContentId *int64  // Foreign Key to Series
+	// SeriesContentId *Series `gorm:"foreignKey:ContentId;column:seriesContentId"`
+	Episodes []SeriesEpisode `gorm:"foreignKey:SeasonContentId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type SeriesEpisode struct {
-	ContentId int64              `gorm:"primaryKey;type:bigint"`
-	EntityId  *int64             `gorm:"type:bigint"`
-	Index     int64              `gorm:"not null;type:bigint"`
-	Name      string             `gorm:"not null;type:varchar"`
-	NameEn    *string            `gorm:"type:varchar"`
-	Image     SeriesEpisodeImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	Link      SeriesEpisodeLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	// SeasonContentId *int64             // Foreign Key to SeriesSeason
-	SeasonContentId *SeriesSeason `gorm:"foreignKey:SeasonContentId;column:seasonContentId"`
+	ContentId       int64              `gorm:"primaryKey;type:bigint"`
+	EntityId        *int64             `gorm:"type:bigint"`
+	Index           int64              `gorm:"not null;type:bigint"`
+	Name            string             `gorm:"not null;type:varchar"`
+	NameEn          *string            `gorm:"type:varchar"`
+	Image           SeriesEpisodeImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Link            SeriesEpisodeLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	SeasonContentId *int64             // Foreign Key to SeriesSeason
+	// SeasonContentId *SeriesSeason `gorm:"foreignKey:SeasonContentId;column:seasonContentId"`
 }
 
 type Slider struct {
