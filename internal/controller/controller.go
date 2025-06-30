@@ -313,16 +313,333 @@ func ProcessContentItem(content SharedModels.ProcessedContentSchema,
 	// 	return ProcessLocalEpisodeSeason(content, dbConnection, apiClient)
 	// case SharedModels.LocalSectionContentSchema:
 	// 	return ProcessLocalSectionContent(content, dbConnection)
-	case SharedModels.LocalPodcastParentSchema:
-		return ProcessLocalPodcastParent(content, dbConnection, apiClient)
-	case SharedModels.LocalAudiobookParentSchema:
-		return ProcessLocalAudiobookParent(content, dbConnection, apiClient)
-	case SharedModels.LocalPodcastSchema:
-		return ProcessLocalPodcast(content, dbConnection, apiClient)
+	// case SharedModels.LocalPodcastParentSchema:
+	// 	return ProcessLocalPodcastParent(content, dbConnection, apiClient)
+	// case SharedModels.LocalAudiobookParentSchema:
+	// 	return ProcessLocalAudiobookParent(content, dbConnection, apiClient)
+	// case SharedModels.LocalPodcastSchema:
+	// 	return ProcessLocalPodcast(content, dbConnection, apiClient)
+	// case SharedModels.LocalAudiobookSchema:
+	// 	return ProcessLocalAudiobook(content, dbConnection, apiClient)
+	// case SharedModels.LocalAlbumSchema:
+	// 	return ProcessLocalAlbum(content, dbConnection, apiClient)
+	// case SharedModels.LocalMusicSchema:
+	// 	return ProcessLocalMusic(content, dbConnection, apiClient)
+	case SharedModels.LocalTermsConditionsSchema:
+		return ProcessLocalTerms(content, dbConnection)
+	case SharedModels.LocalMagazineSchema:
+		return ProcessLocalMagazine(content, dbConnection, apiClient)
+	case SharedModels.LocalNewsSchema:
+		return ProcessLocalNews(content, dbConnection, apiClient)
 	default:
 		log.Printf("Cannot perform specific action for type %T", v)
 	}
 
+	return nil
+}
+
+func ProcessLocalNews(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localNews := SharedModels.News{}
+	detail := content.Details.(SharedModels.LocalNewsSchema)
+	localNews.ContentId = content.ID
+	if content.Enable {
+
+		if detail.ImageURL != nil {
+			_, imageUrlPodspaceHash, err := DownloadImage(apiClient, *detail.ImageURL, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.ImageURL), err)
+			}
+			localNews.Image.ImageURL = &imageUrlPodspaceHash
+		}
+		if detail.BannerURL != nil {
+			_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, *detail.BannerURL, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.BannerURL), err)
+			}
+			localNews.Image.BannerUrl = &bannerUrlPodspaceHash
+		}
+
+		localNews.LongText = detail.LongText
+		localNews.Text = &detail.Text
+
+		publishDate := time.UnixMilli(int64(detail.ReleaseTime))
+		localNews.ReleaseTime = &publishDate
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err := dbConnection.Save(ctx, &localNews)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create news", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalMagazine(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localMag := SharedModels.Magazine{}
+	detail := content.Details.(SharedModels.LocalMagazineSchema)
+	localMag.ContentId = content.ID
+	if content.Enable {
+
+		if detail.ImageURL != nil {
+			_, imageUrlPodspaceHash, err := DownloadImage(apiClient, *detail.ImageURL, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.ImageURL), err)
+			}
+			localMag.Image.ImageURL = &imageUrlPodspaceHash
+		}
+		if detail.BannerURL != nil {
+			_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, *detail.BannerURL, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.BannerURL), err)
+			}
+			localMag.Image.BannerUrl = &bannerUrlPodspaceHash
+		}
+
+		localMag.LongText = detail.LongText
+		localMag.Text = &detail.Text
+
+		publishDate := time.UnixMilli(int64(detail.ReleaseTime))
+		localMag.ReleaseTime = &publishDate
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err := dbConnection.Save(ctx, &localMag)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create news", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalTerms(content SharedModels.ProcessedContentSchema, dbConnection dbclient.DBClient) error {
+	localTerm := SharedModels.TermsConditions{}
+	detail := content.Details.(SharedModels.LocalTermsConditionsSchema)
+	localTerm.ContentId = content.ID
+	if content.Enable {
+		localTerm.Content = detail.Content
+		localTerm.Name = detail.Name
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err := dbConnection.Save(ctx, &localTerm)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalMusic(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localMusic := SharedModels.Music{}
+	detail := content.Details.(SharedModels.LocalMusicSchema)
+	localMusic.ContentId = content.ID
+	if content.Enable {
+		musicDetail, err := apiClient.GetMusicDetail(int(detail.MusicID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localMusic.EntityId = musicDetail.ID
+		localMusic.Description = musicDetail.Description
+		localMusic.AlbumContentId = detail.LocalAlbumID
+		localMusic.Genres = musicDetail.Genre
+		localMusic.Name = musicDetail.NameFa
+		if musicDetail.PublishDate != nil {
+			publishDate := time.UnixMilli(int64(*musicDetail.PublishDate))
+			localMusic.PublishDate = &publishDate
+		}
+
+		for _, agent := range musicDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, musicDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
+		localMusic.Agents = musicDetail.Agents
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, musicDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, musicDetail.ImageURL), err)
+		}
+		localMusic.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, musicDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, musicDetail.BannerURL), err)
+		}
+		localMusic.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		destinationFile, podspaceHash, err := DownloadAudio(apiClient, detail.FileLink)
+		if err != nil {
+			return err
+		}
+
+		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+		}
+		localMusic.Link.FileHash = hex.EncodeToString(hash)
+		localMusic.Link.PlayLink = podspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localMusic)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalAlbum(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localAlbum := SharedModels.Album{}
+	detail := content.Details.(SharedModels.LocalAlbumSchema)
+	localAlbum.ContentId = content.ID
+	if content.Enable {
+		albumDetail, err := apiClient.GetAlbumDetail(int(detail.AlbumID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localAlbum.EntityId = albumDetail.ID
+		localAlbum.Description = albumDetail.Description
+		localAlbum.Name = albumDetail.NameFa
+		localAlbum.Genre = albumDetail.Genre
+
+		for _, agent := range albumDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, albumDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
+		localAlbum.Agents = albumDetail.Agents
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, albumDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, albumDetail.ImageURL), err)
+		}
+		localAlbum.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, albumDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, albumDetail.BannerURL), err)
+		}
+		localAlbum.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localAlbum)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+
+		panic("not implemented")
+	}
+	return nil
+}
+func ProcessLocalAudiobook(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+
+	localAudiobook := SharedModels.AudioBook{}
+	detail := content.Details.(SharedModels.LocalAudiobookSchema)
+	localAudiobook.ContentId = content.ID
+	if content.Enable {
+		audiobookDetail, err := apiClient.GetAudiobookDetail(int(detail.AudiobookID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+
+		localAudiobook.EntityId = audiobookDetail.ID
+		localAudiobook.Ages = audiobookDetail.Ages
+		localAudiobook.Duration = audiobookDetail.Duration
+		localAudiobook.Name = audiobookDetail.NameFa
+		localAudiobook.Genre = audiobookDetail.Genre
+
+		for _, agent := range audiobookDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
+		localAudiobook.Agents = audiobookDetail.Agents
+
+		publishDate := time.UnixMilli(int64(audiobookDetail.PublishDate))
+		localAudiobook.PublishDate = &publishDate
+		localAudiobook.AudiobookAlbumContentId = &detail.LocalAudiobookParentID
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, audiobookDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookDetail.ImageURL), err)
+		}
+		localAudiobook.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, audiobookDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookDetail.BannerURL), err)
+		}
+		localAudiobook.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		destinationFile, podspaceHash, err := DownloadAudio(apiClient, detail.FileLink)
+		if err != nil {
+			return err
+		}
+
+		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+		}
+		localAudiobook.Link.FileHash = hex.EncodeToString(hash)
+		localAudiobook.Link.PlayLink = podspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localAudiobook)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
 	return nil
 }
 
@@ -343,7 +660,17 @@ func ProcessLocalPodcast(content SharedModels.ProcessedContentSchema, dbConnecti
 		localPodcast.Duration = podcastDetail.Duration
 		localPodcast.Name = podcastDetail.NameFa
 		localPodcast.Genre = podcastDetail.Genre
+
+		for _, agent := range podcastDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, podcastDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
 		localPodcast.Agents = podcastDetail.Agents
+
 		publishDate := time.UnixMilli(int64(podcastDetail.PublishDate))
 		localPodcast.PublishDate = &publishDate
 		localPodcast.PodcastAlbumContentId = &detail.LocalPodcastParentID
@@ -407,6 +734,15 @@ func ProcessLocalAudiobookParent(content SharedModels.ProcessedContentSchema,
 		localAudiobookParent.Duration = audiobookParentDetail.Duration
 		localAudiobookParent.Name = audiobookParentDetail.NameFa
 		localAudiobookParent.Genre = audiobookParentDetail.Genre
+
+		for _, agent := range audiobookParentDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookParentDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
 		localAudiobookParent.Agents = audiobookParentDetail.Agents
 
 		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, audiobookParentDetail.ImageURL, "")

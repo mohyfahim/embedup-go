@@ -101,7 +101,12 @@ type MovieImage struct {
 }
 
 type MagazineImage struct {
-	ImageURL  string  `json:"imageUrl"`
+	ImageURL  *string `json:"imageUrl,omitempty"`
+	BannerUrl *string `json:"bannerUrl,omitempty"`
+}
+
+type NewsImage struct {
+	ImageURL  *string `json:"imageUrl,omitempty"`
 	BannerUrl *string `json:"bannerUrl,omitempty"`
 }
 
@@ -113,6 +118,11 @@ type MovieLink struct {
 
 // MovieGenre is for the 'genres' field in Movie/Series (if not linking to main Genre table)
 type MovieGenre struct {
+	Name string `json:"name"`
+	Code string `json:"code"`
+}
+
+type MusicGenre struct {
 	Name string `json:"name"`
 	Code string `json:"code"`
 }
@@ -187,29 +197,44 @@ type Advertisement struct {
 }
 
 type Album struct {
-	ContentId   int64       `gorm:"primaryKey;type:bigint;column:contentId"`
-	EntityId    int64       `gorm:"not null;type:bigint;column:entityId"`
-	Description string      `gorm:"not null;default:'';column:description"`                         // Assuming 'description' is not nullable
-	Image       AlbumImage  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`  // Stored as JSON
-	Agents      []PersonDTO `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"` // Stored as JSON array
-	Genre       AlbumGenre  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`  // Stored as JSON
-	Name        string      `gorm:"not null;column:name"`                                           // Assuming 'name' is not nullable
+	ContentId   int64        `gorm:"primaryKey;type:bigint;column:contentId"`
+	EntityId    int64        `gorm:"not null;type:bigint;column:entityId"`
+	Description *string      `gorm:"column:description;default:''"`                                  // Assuming 'description' is not nullable
+	Image       AlbumImage   `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`  // Stored as JSON
+	Agents      []*PersonDTO `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"` // Stored as JSON array
+	Genre       *AlbumGenre  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`  // Stored as JSON
+	Name        string       `gorm:"not null;column:name"`                                           // Assuming 'name' is not nullable
+}
+
+func (p *Album) BeforeSave(tx *gorm.DB) (err error) {
+
+	if p.Genre == nil {
+		p.Genre = &AlbumGenre{}
+	}
+	if p.Agents == nil {
+		p.Agents = make([]*PersonDTO, 0)
+	}
+	if p.Description == nil {
+		desc := ""
+		p.Description = &desc
+	}
+	return nil
 }
 
 type AudioBook struct {
-	ContentId   int64          `gorm:"primaryKey;type:bigint;column:contentId"`
-	EntityId    int64          `gorm:"type:bigint;column:entityId"`
-	Description string         `gorm:"default:'';type:varchar;column:description"`
-	Ages        *int32         `gorm:"type:integer;default:0;column:ages"`
-	Link        AudioBookLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:link"`
-	Image       AudioBookImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
-	// AudiobookAlbumContentId *int64         // Foreign Key for AudiobookAlbum
-	AudiobookAlbumContentId *AudiobookAlbum `gorm:"foreignKey:AudiobookAlbumContentId;column:audiobookAlbumContentId"`
-	Genre                   *AudioBookGenre `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`
-	Agents                  []*PersonDTO    `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"`
-	Name                    string          `gorm:"not null;type:varchar;column:name"`
-	PublishDate             *time.Time      `gorm:"type:timestamptz;column:publishDate"`
-	Duration                *int            `gorm:"default:0;column:duration"`
+	ContentId               int64          `gorm:"primaryKey;type:bigint;column:contentId"`
+	EntityId                int64          `gorm:"type:bigint;column:entityId"`
+	Description             string         `gorm:"default:'';type:varchar;column:description"`
+	Ages                    *int32         `gorm:"type:integer;default:0;column:ages"`
+	Link                    AudioBookLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:link"`
+	Image                   AudioBookImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
+	AudiobookAlbumContentId *int64         // Foreign Key for AudiobookAlbum
+	// AudiobookAlbumContentId *AudiobookAlbum `gorm:"foreignKey:AudiobookAlbumContentId;column:audiobookAlbumContentId"`
+	Genre       *AudioBookGenre `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`
+	Agents      []*PersonDTO    `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"`
+	Name        string          `gorm:"not null;type:varchar;column:name"`
+	PublishDate *time.Time      `gorm:"type:timestamptz;column:publishDate"`
+	Duration    *int            `gorm:"default:0;column:duration"`
 }
 
 func (p *AudioBook) BeforeSave(tx *gorm.DB) (err error) {
@@ -262,26 +287,51 @@ type Genre struct {
 }
 
 type Magazine struct {
-	ContentId int64         `gorm:"primaryKey;type:bigint;column:contentId"`
-	Title     string        `gorm:"not null;type:varchar;column:title"`
-	LongText  string        `gorm:"not null;type:text;column:longText"`
-	Text      *string       `gorm:"type:text;column:text"`
-	Image     MagazineImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
+	ContentId   int64         `gorm:"primaryKey;type:bigint;column:contentId"`
+	Title       string        `gorm:"not null;type:varchar;column:title"`
+	LongText    string        `gorm:"not null;type:text;column:longText"`
+	Text        *string       `gorm:"type:text;column:text"`
+	Image       MagazineImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
+	ReleaseTime *time.Time    `gorm:"type:timestamptz"`
+}
+
+type News struct {
+	ContentId   int64      `gorm:"primaryKey;type:bigint;column:contentId"`
+	Title       string     `gorm:"not null;type:varchar;column:title"`
+	LongText    string     `gorm:"not null;type:text;column:longText"`
+	Text        *string    `gorm:"type:text;column:text"`
+	Image       NewsImage  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
+	ReleaseTime *time.Time `gorm:"type:timestamptz"`
 }
 
 type Music struct {
-	ContentId      int64        `gorm:"primaryKey;type:bigint"`
-	EntityId       int64        `gorm:"type:bigint"`
-	Description    string       `gorm:"default:''"`
-	Image          MusicImage   `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	Link           MusicLink    `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	AlbumContentId *int64       // Foreign key for Album
-	Album          *Album       `gorm:"foreignKey:AlbumContentId"`                        // Belongs to Album
-	Genres         []MovieGenre `gorm:"not null;type:jsonb;serializer:json;default:'[]'"` // Embedded JSON
-	Agents         []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
-	Name           string       `gorm:"not null"`
-	PublishDate    *time.Time   `gorm:"type:timestamptz"`
-	CreatedAt      time.Time    `gorm:"type:timestamptz;autoCreateTime"`
+	ContentId      int64      `gorm:"primaryKey;type:bigint"`
+	EntityId       int64      `gorm:"type:bigint"`
+	Description    *string    `gorm:"default:''"`
+	Image          MusicImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Link           MusicLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	AlbumContentId *int64     // Foreign key for Album
+	// Album          *Album        `gorm:"foreignKey:AlbumContentId"`                        // Belongs to Album
+	Genres      []*MusicGenre `gorm:"not null;type:jsonb;serializer:json;default:'[]'"` // Embedded JSON
+	Agents      []*PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
+	Name        string        `gorm:"not null"`
+	PublishDate *time.Time    `gorm:"type:timestamptz"`
+	CreatedAt   time.Time     `gorm:"type:timestamptz;autoCreateTime"`
+}
+
+func (p *Music) BeforeSave(tx *gorm.DB) (err error) {
+
+	if p.Genres == nil {
+		p.Genres = make([]*MusicGenre, 0)
+	}
+	if p.Agents == nil {
+		p.Agents = make([]*PersonDTO, 0)
+	}
+	if p.Description == nil {
+		desc := ""
+		p.Description = &desc
+	}
+	return nil
 }
 
 type Movie struct {

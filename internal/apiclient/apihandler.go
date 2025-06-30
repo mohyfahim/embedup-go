@@ -468,10 +468,20 @@ func (ac *APIClient) FetchContentUpdates(
 			} else {
 				specificContent = termsContent
 			}
-			// case "local-news":
-		// 	var newsContent SharedModels.LocalNewsSchema
-		// case "local-magazine":
-		// 	var magazineContent SharedModels.LocalMagazineSchema
+		case "local-news":
+			var newsContent SharedModels.LocalNewsSchema
+			if err := json.Unmarshal(item.Content, &newsContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-news' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = newsContent
+			}
+		case "local-magazine":
+			var magazineContent SharedModels.LocalMagazineSchema
+			if err := json.Unmarshal(item.Content, &magazineContent); err != nil {
+				parseErr = fmt.Errorf("failed to parse 'local-magazine' content for ID %d: %w", item.ID, err)
+			} else {
+				specificContent = magazineContent
+			}
 		default:
 			log.Printf("Unknown content type '%s' for item ID %d. Skipping.", item.Type, item.ID)
 			continue // Skip to the next item
@@ -497,6 +507,140 @@ func (ac *APIClient) FetchContentUpdates(
 
 	log.Printf("Successfully processed %d content items.", len(processedItems))
 	return &contentResp, processedItems, nil
+}
+
+func (ac *APIClient) GetMusicDetail(movieId int) (SharedModels.LocalMusicContentDetailSchema, error) {
+
+	var contentResp SharedModels.LocalMusicContentSchema
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		SuccessResult: &contentResp,
+		ErrorResult:   &apiErr,
+	}
+	url, err := url.JoinPath(ac.config.ContentDetailAPIURL, fmt.Sprint(movieId))
+	if err != nil {
+		log.Printf("Error joining path %s and movie id %d :%v",
+			ac.config.ContentDetailAPIURL, movieId, err)
+
+		return contentResp.Content, err
+	}
+
+	resp, err := ac.client.Get(url, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return contentResp.Content, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+	return contentResp.Content, nil
+}
+
+func (ac *APIClient) GetAlbumDetail(movieId int) (SharedModels.LocalAlbumContentDetailSchema, error) {
+
+	var contentResp SharedModels.LocalAlbumContentSchema
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		SuccessResult: &contentResp,
+		ErrorResult:   &apiErr,
+	}
+	url, err := url.JoinPath(ac.config.ContentDetailAPIURL, fmt.Sprint(movieId))
+	if err != nil {
+		log.Printf("Error joining path %s and movie id %d :%v",
+			ac.config.ContentDetailAPIURL, movieId, err)
+
+		return contentResp.Content, err
+	}
+
+	resp, err := ac.client.Get(url, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return contentResp.Content, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+	return contentResp.Content, nil
+}
+func (ac *APIClient) GetAudiobookDetail(movieId int) (SharedModels.LocalAudiobookContentDetailSchema, error) {
+
+	var contentResp SharedModels.LocalAudiobookContentSchema
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		SuccessResult: &contentResp,
+		ErrorResult:   &apiErr,
+	}
+	url, err := url.JoinPath(ac.config.ContentDetailAPIURL, fmt.Sprint(movieId))
+	if err != nil {
+		log.Printf("Error joining path %s and movie id %d :%v",
+			ac.config.ContentDetailAPIURL, movieId, err)
+
+		return contentResp.Content, err
+	}
+
+	resp, err := ac.client.Get(url, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return contentResp.Content, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+	return contentResp.Content, nil
 }
 
 func (ac *APIClient) GetPodcastDetail(movieId int) (SharedModels.LocalPodcastContentDetailSchema, error) {
