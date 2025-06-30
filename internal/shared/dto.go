@@ -2,6 +2,8 @@ package shared
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 	// You might need "gorm.io/datatypes" for datatypes.JSON if you choose to use it
 	// for some JSON fields instead of custom structs, but custom structs are generally better for typed access.
 )
@@ -203,25 +205,47 @@ type AudioBook struct {
 	Image       AudioBookImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
 	// AudiobookAlbumContentId *int64         // Foreign Key for AudiobookAlbum
 	AudiobookAlbumContentId *AudiobookAlbum `gorm:"foreignKey:AudiobookAlbumContentId;column:audiobookAlbumContentId"`
-	Genre                   AudioBookGenre  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`
-	Agents                  []PersonDTO     `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"`
+	Genre                   *AudioBookGenre `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`
+	Agents                  []*PersonDTO    `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"`
 	Name                    string          `gorm:"not null;type:varchar;column:name"`
 	PublishDate             *time.Time      `gorm:"type:timestamptz;column:publishDate"`
 	Duration                *int            `gorm:"default:0;column:duration"`
 }
 
+func (p *AudioBook) BeforeSave(tx *gorm.DB) (err error) {
+
+	if p.Genre == nil {
+		p.Genre = &AudioBookGenre{}
+	}
+	if p.Agents == nil {
+		p.Agents = make([]*PersonDTO, 0)
+	}
+	return nil
+}
+
 type AudiobookAlbum struct {
-	ContentId   int64          `gorm:"type:bigint;primaryKey;column:contentId"`
-	EntityId    int64          `gorm:"type:bigint;column:entityId"`
-	Description string         `gorm:"default:'';type:varchar;column:description"`
-	Ages        *int32         `gorm:"type:integer;default:0;column:ages"`
-	Image       AudioBookImage `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
-	Genre       AudioBookGenre `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:genre"`
-	Agents      []PersonDTO    `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"`
-	PublishDate *time.Time     `gorm:"type:timestamptz;column:publishDate"`
+	ContentId   int64           `gorm:"type:bigint;primaryKey;column:contentId"`
+	EntityId    int64           `gorm:"type:bigint;column:entityId"`
+	Description string          `gorm:"default:'';type:varchar;column:description"`
+	Ages        *int32          `gorm:"type:integer;default:0;column:ages"`
+	Image       AudioBookImage  `gorm:"not null;type:jsonb;serializer:json;default:'{}';column:image"`
+	Genre       *AudioBookGenre `gorm:"type:jsonb;serializer:json;default:'{}';column:genre"`
+	Agents      []*PersonDTO    `gorm:"not null;type:jsonb;serializer:json;default:'[]';column:agents"`
+	PublishDate *time.Time      `gorm:"type:timestamptz;column:publishDate"`
 	// Audiobooks  []AudioBook    `gorm:"foreignKey:AudiobookAlbumId;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Duration int    `gorm:"not null;column:duration"` // Assuming not null
 	Name     string `gorm:"not null;type:varchar;column:name"`
+}
+
+func (p *AudiobookAlbum) BeforeSave(tx *gorm.DB) (err error) {
+
+	if p.Genre == nil {
+		p.Genre = &AudioBookGenre{}
+	}
+	if p.Agents == nil {
+		p.Agents = make([]*PersonDTO, 0)
+	}
+	return nil
 }
 
 type EntityInfo struct {
@@ -295,19 +319,36 @@ type Page struct {
 // }
 
 type Podcast struct {
-	ContentId   int64        `gorm:"primaryKey;type:bigint"`
-	EntityId    int64        `gorm:"not null;type:bigint"`
-	Description string       `gorm:"default:'';not null; type:varchar"`
-	Ages        *int32       `gorm:"type:integer;default:0"`
-	Image       PodcastImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	Link        PodcastLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	Agents      []PersonDTO  `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
-	Duration    *int         `gorm:"default:0"`
-	// PodcastAlbumId *int64        // Foreign Key
-	PodcastAlbumContentId *PodcastAlbum `gorm:"foreignKey:PodcastAlbumContentId;column:podcastAlbumContentId"`
-	Genre                 PodcastGenre  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	Name                  string        `gorm:"not null;type:varchar"`
-	PublishDate           *time.Time    `gorm:"type:timestamptz"`
+	ContentId             int64        `gorm:"primaryKey;type:bigint"`
+	EntityId              int64        `gorm:"not null;type:bigint"`
+	Description           string       `gorm:"default:'';not null; type:varchar"`
+	Ages                  *int32       `gorm:"type:integer;default:0"`
+	Image                 PodcastImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Link                  PodcastLink  `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Agents                []*PersonDTO `gorm:"not null;type:jsonb;serializer:json;default:'[]'"`
+	Duration              *int         `gorm:"default:0"`
+	PodcastAlbumContentId *int64
+	// PodcastAlbumContentId *PodcastAlbum `gorm:"foreignKey:PodcastAlbumContentId;column:podcastAlbumContentId"`
+	Genre       *PodcastGenre `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Name        string        `gorm:"not null;type:varchar"`
+	PublishDate *time.Time    `gorm:"type:timestamptz"`
+}
+
+func (p *Podcast) BeforeSave(tx *gorm.DB) (err error) {
+
+	if p.Genre == nil {
+		p.Genre = &PodcastGenre{}
+	}
+	if p.Agents == nil {
+		p.Agents = make([]*PersonDTO, 0)
+	}
+
+	if p.Duration == nil {
+		dur := 0
+		p.Duration = &dur
+	}
+
+	return nil
 }
 
 type PodcastAlbum struct {
@@ -324,36 +365,23 @@ type PodcastAlbum struct {
 	Name     string `gorm:"not null;not null;type:varchar"`
 }
 
+func (p *PodcastAlbum) BeforeSave(tx *gorm.DB) (err error) {
+
+	if p.Genre == nil {
+		p.Genre = &PodcastGenre{} // Or whatever the empty state of PodcastGenre is
+	}
+	if p.Agents == nil {
+		p.Agents = make([]*PersonDTO, 0)
+	}
+	return nil
+}
+
 type Poll struct {
 	ContentId int64               `gorm:"primaryKey;type:bigint"`
 	Questions []LocalPollQuestion `gorm:"not null;type:jsonb;serializer:json"` // Needs PollQuestionDTO defined
 	Title     string              `gorm:"not null; type:varchar"`
 	Enable    bool                `gorm:"not null"`
 }
-
-// type User struct {
-// 	Id          string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-// 	Name        *string `gorm:"type:varchar"`
-// 	UserId      *int64  `gorm:"type:bigint;uniqueIndex"`
-// 	SsoId       *string `gorm:"uniqueIndex;type:varchar"`
-// 	Username    *string `gorm:"uniqueIndex;type:varchar"`
-// 	Phonenumber *string `gorm:"uniqueIndex;type:varchar"`
-// 	// Tokens      []Token   `gorm:"foreignKey:UserId"` // UserId in Token model
-// 	// Usage       []Usage   `gorm:"foreignKey:UserId"` // UserId in Usage model
-// 	CreatedAt time.Time `gorm:"type:timestamptz;autoCreateTime"`
-// 	UpdateAt  time.Time `gorm:"type:timestamptz;autoUpdateTime"`
-// }
-
-// type PollAnswer struct {
-// 	Id                   string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-// 	PollId               int32     `gorm:"not null;index:idx_poll_user_answer,unique"`              // Part of composite unique index
-// 	PollQuestionId       string    `gorm:"not null;type:varchar;index:idx_poll_user_answer,unique"` // Part of composite unique index
-// 	PollQuestionAnswerId string    `gorm:"not null;type:varchar;index:idx_poll_user_answer,unique"` // Part of composite unique index
-// 	Synced               bool      `gorm:"not null;default:false"`
-// 	UserId               string    `gorm:"not null;type:uuid;index:idx_poll_user_answer,unique"` // Part of composite unique index
-// 	User                 User      `gorm:"foreignKey:UserId"`                                    // Links to User struct
-// 	CreatedAt            time.Time `gorm:"type:timestamptz;autoCreateTime"`
-// }
 
 type Section struct {
 	ContentId  int64   `gorm:"primaryKey;type:bigint"`

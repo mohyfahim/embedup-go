@@ -499,6 +499,96 @@ func (ac *APIClient) FetchContentUpdates(
 	return &contentResp, processedItems, nil
 }
 
+func (ac *APIClient) GetPodcastDetail(movieId int) (SharedModels.LocalPodcastContentDetailSchema, error) {
+
+	var contentResp SharedModels.LocalPodcastContentSchema
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		SuccessResult: &contentResp,
+		ErrorResult:   &apiErr,
+	}
+	url, err := url.JoinPath(ac.config.ContentDetailAPIURL, fmt.Sprint(movieId))
+	if err != nil {
+		log.Printf("Error joining path %s and movie id %d :%v",
+			ac.config.ContentDetailAPIURL, movieId, err)
+
+		return contentResp.Content, err
+	}
+
+	resp, err := ac.client.Get(url, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return contentResp.Content, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+	return contentResp.Content, nil
+}
+
+func (ac *APIClient) GetAudiobookParentDetail(movieId int) (SharedModels.LocalAudiobookParentContentDetailSchema, error) {
+
+	var contentResp SharedModels.LocalAudiobookParentContentSchema
+	var apiErr UpdateErr
+
+	headers := map[string]string{
+		"device-token": ac.token,
+	}
+
+	opts := &RequestOptions{
+		Headers:       headers,
+		SuccessResult: &contentResp,
+		ErrorResult:   &apiErr,
+	}
+	url, err := url.JoinPath(ac.config.ContentDetailAPIURL, fmt.Sprint(movieId))
+	if err != nil {
+		log.Printf("Error joining path %s and movie id %d :%v",
+			ac.config.ContentDetailAPIURL, movieId, err)
+
+		return contentResp.Content, err
+	}
+
+	resp, err := ac.client.Get(url, opts)
+	if err != nil {
+		log.Printf("Error during HTTP GET for content updates: %v", err)
+		return contentResp.Content, err
+	}
+
+	if resp.IsError() {
+		errMsg := apiErr.Message
+		if errMsg == "" {
+			errMsg = string(resp.Body)
+		}
+		log.Printf("Content update API request failed with status %d: %s", resp.StatusCode, errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+
+	if !resp.IsSuccess() {
+		errMsg := fmt.Sprintf("Content update API request returned non-success status %d. Body: %s", resp.StatusCode, string(resp.Body))
+		log.Println(errMsg)
+		return contentResp.Content, cstmerr.NewAPIRequestFailedError(resp.StatusCode, errMsg)
+	}
+	return contentResp.Content, nil
+}
+
 func (ac *APIClient) GetPodcastParentDetail(movieId int) (SharedModels.LocalPodcastParentContentDetailSchema, error) {
 
 	var contentResp SharedModels.LocalPodcastParentContentSchema

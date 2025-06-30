@@ -1,0 +1,16 @@
+[Unit]
+Description=Podbox Update Service
+After=network.target
+
+[Service]
+Environment="PODBOX_UPDATE_CONTENT_BASE_PATH="
+Environment="PODBOX_UPDATE_DB_PASSWORD_CONF=\"\""
+Environment="PODBOX_UPDATE_CONF="
+User=root
+Group=root
+WorkingDirectory=/
+ExecStart=/
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
