@@ -46,8 +46,15 @@ type GenericContentItem struct {
 
 // LocalAdvertisementContent defines the structure for "local-advertisement" type.
 type LocalAdvertisementSchema struct {
-	FileLink     string `json:"fileLink"`
-	SkipDuration int    `json:"skipDuration"`
+	AdsType         int     `json:"asdType"`
+	VideoLink       *string `json:"videoLink,omitempty"`
+	MobileVideoLink *string `json:"mobileVideoLink,omitempty"`
+	Banner          *string `json:"banner,omitempty"`
+	MobileBanner    *string `json:"MobileBanner,omitempty"`
+	TabletBanner    *string `json:"tabletBanner,omitempty"`
+	SkipDuration    *int32  `json:"skipDuration,omitempty"`
+	ActionName      *string `json:"actionName,omitempty"`
+	ActionLink      *string `json:"actionLink,omitempty"`
 }
 
 type LocalPageSchema struct {
@@ -419,11 +426,12 @@ type LocalSliderSchema struct {
 	SmallImageURL  string  `json:"smallImageUrl"`
 	MediumImageURL string  `json:"mediumImageUrl"`
 	LogoImageURL   *string `json:"logoImageUrl,omitempty"`
-	MovieURL       string  `json:"movieUrl"`
+	MovieURL       *string `json:"movieUrl,omitempty"`
 	ButtonTitle    *string `json:"buttonTitle,omitempty"`
 	Link           *string `json:"link,omitempty"`
 	LocalTabIDs    []int   `json:"localTabIds"`
-	LocalContentID int     `json:"localContentId"`
+	LocalContentID int64   `json:"localContentId"`
+	EntityType     *string `json:"entityType,omitempty"`
 }
 type LocalPollAnswer struct {
 	ID    string `json:"id"`

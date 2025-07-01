@@ -57,10 +57,15 @@ type PollQuestionDTO struct {
 
 // AdvertisementLink is for the 'link' field in Advertisement
 type AdvertisementLink struct {
-	PlayLink     string `json:"playLink"`
-	FileHash     string `json:"fileHash"`
-	LinkType     string `json:"linkType"`
-	OriginalLink string `json:"originalLink"`
+	VideoLink           *string `json:"videoLink,omitempty"`
+	VideoHash           *string `json:"videoHash,omitempty"`
+	VideoLinkType       *string `json:"videoLinkType,omitempty"`
+	MobileVideoLink     *string `json:"mobileVideoLink,omitempty"`
+	MobileVideoHash     *string `json:"mobileVideoHash,omitempty"`
+	MobileVideoLinkType *string `json:"mobileVideoLinkType,omitempty"`
+	BannerURL           *string `json:"bannerUrl,omitempty"`
+	MobileBannerURL     *string `json:"mobileBannerUrl,omitempty"`
+	TabletBannerURL     *string `json:"tabletBannerUrl,omitempty"`
 }
 
 // AlbumImage is for the 'image' field in Album
@@ -169,11 +174,13 @@ type SeriesEpisodeLink struct {
 }
 
 // SliderImage is for the 'image' field in Slider
-type SliderImage struct {
+type SliderLink struct {
 	ImageURL       string  `json:"imageUrl"`
 	MediumImageUrl *string `json:"mediumImageUrl,omitempty"`
 	SmallImageUrl  *string `json:"smallImageUrl,omitempty"`
 	LogoImageUrl   *string `json:"logoImageUrl,omitempty"`
+	VideoUrl       *string `json:"videoUrl,omitempty"`
+	MobileVideoUrl *string `json:"mobileVideoUrl,omitempty"`
 }
 
 type VideoImage struct {
@@ -189,11 +196,26 @@ type VideoLink struct {
 // --- GORM Models ---
 
 type Advertisement struct {
-	ContentId    int64             `gorm:"primaryKey;type:bigint;column:contentId"`
-	SkipDuration int32             `gorm:"not null"`
+	ContentId    int64 `gorm:"primaryKey;type:bigint;column:contentId"`
+	SkipDuration *int32
+	AdsType      int32             `gorm:"not null"`
+	ActionName   *string           `gorm:"default:'';type:varchar"`
+	ActionLink   *string           `gorm:"default:'';type:varchar"`
 	Link         AdvertisementLink `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
 	ViewCount    int32             `gorm:"not null;default:0"`
-	Synced       bool              `gorm:"not null"`
+}
+
+func (p *Advertisement) BeforeSave(tx *gorm.DB) (err error) {
+
+	if p.ActionLink == nil {
+		desc := ""
+		p.ActionLink = &desc
+	}
+	if p.ActionName == nil {
+		desc := ""
+		p.ActionName = &desc
+	}
+	return nil
 }
 
 type Album struct {
@@ -495,14 +517,14 @@ type SeriesEpisode struct {
 }
 
 type Slider struct {
-	ContentId   int64       `gorm:"primaryKey;type:bigint"`
-	Image       SliderImage `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
-	Type        *string     `gorm:"type:varchar"`
-	EntityType  *string     `gorm:"type:varchar"`
-	EntityId    *int64      `gorm:"type:bigint"`
-	ButtonTitle *string     `gorm:"type:varchar"`
-	Link        *string     `gorm:"type:varchar"`
-	Tabs        []*Tab      `gorm:"many2many:slider_tabs_tab;"`
+	ContentId   int64      `gorm:"primaryKey;type:bigint"`
+	Links       SliderLink `gorm:"not null;type:jsonb;serializer:json;default:'{}'"`
+	Type        *string    `gorm:"type:varchar"`
+	EntityType  *string    `gorm:"type:varchar"`
+	EntityId    *int64     `gorm:"type:bigint"`
+	ButtonTitle *string    `gorm:"type:varchar"`
+	Link        *string    `gorm:"type:varchar"`
+	Tabs        []*Tab     `gorm:"many2many:slider_tabs_tab;"`
 }
 
 type TermsConditions struct {

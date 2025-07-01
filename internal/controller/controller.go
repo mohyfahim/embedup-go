@@ -289,42 +289,42 @@ func ProcessContentItem(content SharedModels.ProcessedContentSchema,
 	log.Printf("Processing item ID: %d, Type: %s, Enabled: %t", content.ID, content.Type, content.Enable)
 
 	switch v := content.Details.(type) {
-	// case SharedModels.LocalAdvertisementSchema:
-	// 	return ProcessLocalAdvertisement(content, dbConnection, apiClient)
-	// case SharedModels.LocalPageSchema:
-	// 	return ProcessLocalPage(content, dbConnection)
-	// case SharedModels.LocalTabSchema:
-	// 	return ProcessLocalTab(content, dbConnection)
-	// case SharedModels.LocalSliderSchema:
-	// 	return ProcessLocalSlider(content, dbConnection, apiClient)
-	// case SharedModels.LocalMovieGenreSchema:
-	// 	return ProcessLocalMovieGenre(content, dbConnection, apiClient)
-	// case SharedModels.LocalSectionSchema:
-	// 	return ProcessLocalSection(content, dbConnection)
-	// case SharedModels.LocalPollSchema:
-	// 	return ProcessLocalPoll(content, dbConnection)
-	// case SharedModels.LocalMovieSchema:
-	// 	return ProcessLocalMovie(content, dbConnection, apiClient)
-	// case SharedModels.LocalSeriesSchema:
-	// 	return ProcessLocalSeries(content, dbConnection, apiClient)
-	// case SharedModels.LocalSeriesSeasonSchema:
-	// 	return ProcessLocalSeriesSeason(content, dbConnection, apiClient)
-	// case SharedModels.LocalSeriesEpisodeSchema:
-	// 	return ProcessLocalEpisodeSeason(content, dbConnection, apiClient)
-	// case SharedModels.LocalSectionContentSchema:
-	// 	return ProcessLocalSectionContent(content, dbConnection)
-	// case SharedModels.LocalPodcastParentSchema:
-	// 	return ProcessLocalPodcastParent(content, dbConnection, apiClient)
-	// case SharedModels.LocalAudiobookParentSchema:
-	// 	return ProcessLocalAudiobookParent(content, dbConnection, apiClient)
-	// case SharedModels.LocalPodcastSchema:
-	// 	return ProcessLocalPodcast(content, dbConnection, apiClient)
-	// case SharedModels.LocalAudiobookSchema:
-	// 	return ProcessLocalAudiobook(content, dbConnection, apiClient)
-	// case SharedModels.LocalAlbumSchema:
-	// 	return ProcessLocalAlbum(content, dbConnection, apiClient)
-	// case SharedModels.LocalMusicSchema:
-	// 	return ProcessLocalMusic(content, dbConnection, apiClient)
+	case SharedModels.LocalAdvertisementSchema:
+		return ProcessLocalAdvertisement(content, dbConnection, apiClient)
+	case SharedModels.LocalPageSchema:
+		return ProcessLocalPage(content, dbConnection)
+	case SharedModels.LocalTabSchema:
+		return ProcessLocalTab(content, dbConnection)
+	case SharedModels.LocalSliderSchema:
+		return ProcessLocalSlider(content, dbConnection, apiClient)
+	case SharedModels.LocalMovieGenreSchema:
+		return ProcessLocalMovieGenre(content, dbConnection, apiClient)
+	case SharedModels.LocalSectionSchema:
+		return ProcessLocalSection(content, dbConnection)
+	case SharedModels.LocalPollSchema:
+		return ProcessLocalPoll(content, dbConnection)
+	case SharedModels.LocalMovieSchema:
+		return ProcessLocalMovie(content, dbConnection, apiClient)
+	case SharedModels.LocalSeriesSchema:
+		return ProcessLocalSeries(content, dbConnection, apiClient)
+	case SharedModels.LocalSeriesSeasonSchema:
+		return ProcessLocalSeriesSeason(content, dbConnection, apiClient)
+	case SharedModels.LocalSeriesEpisodeSchema:
+		return ProcessLocalEpisodeSeason(content, dbConnection, apiClient)
+	case SharedModels.LocalSectionContentSchema:
+		return ProcessLocalSectionContent(content, dbConnection)
+	case SharedModels.LocalPodcastParentSchema:
+		return ProcessLocalPodcastParent(content, dbConnection, apiClient)
+	case SharedModels.LocalAudiobookParentSchema:
+		return ProcessLocalAudiobookParent(content, dbConnection, apiClient)
+	case SharedModels.LocalPodcastSchema:
+		return ProcessLocalPodcast(content, dbConnection, apiClient)
+	case SharedModels.LocalAudiobookSchema:
+		return ProcessLocalAudiobook(content, dbConnection, apiClient)
+	case SharedModels.LocalAlbumSchema:
+		return ProcessLocalAlbum(content, dbConnection, apiClient)
+	case SharedModels.LocalMusicSchema:
+		return ProcessLocalMusic(content, dbConnection, apiClient)
 	case SharedModels.LocalTermsConditionsSchema:
 		return ProcessLocalTerms(content, dbConnection)
 	case SharedModels.LocalMagazineSchema:
@@ -1271,7 +1271,7 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 			return cstmerr.NewProcessError(
 				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, detail.ImageURL), err)
 		}
-		localSlider.Image.ImageURL = filepath.Join(SLIDER, imageUrlPodspaceHash)
+		localSlider.Links.ImageURL = filepath.Join(SLIDER, imageUrlPodspaceHash)
 
 		if detail.LogoImageURL != nil {
 			_, logoImageUrlPodspaceHash, err := DownloadImage(apiclient, *detail.LogoImageURL, SLIDER)
@@ -1280,7 +1280,7 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, detail.ImageURL), err)
 			}
 			trick := filepath.Join(SLIDER, logoImageUrlPodspaceHash)
-			localSlider.Image.LogoImageUrl = &trick
+			localSlider.Links.LogoImageUrl = &trick
 		}
 
 		_, mediumImageUrlPodspaceHash, err := DownloadImage(apiclient, detail.MediumImageURL, SLIDER)
@@ -1289,7 +1289,7 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, detail.ImageURL), err)
 		}
 		trick := filepath.Join(SLIDER, mediumImageUrlPodspaceHash)
-		localSlider.Image.MediumImageUrl = &trick
+		localSlider.Links.MediumImageUrl = &trick
 
 		_, smallImageUrlPodspaceHash, err := DownloadImage(apiclient, detail.SmallImageURL, SLIDER)
 		if err != nil {
@@ -1297,9 +1297,21 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, detail.ImageURL), err)
 		}
 		trick2 := filepath.Join(SLIDER, smallImageUrlPodspaceHash)
-		localSlider.Image.SmallImageUrl = &trick2
+		localSlider.Links.SmallImageUrl = &trick2
 
 		localSlider.Link = detail.Link
+
+		localSlider.EntityId = &detail.LocalContentID
+		localSlider.EntityType = detail.EntityType
+
+		if detail.MovieURL != nil {
+			_, podspaceHash, err := DownloadVideo(apiclient, *detail.MovieURL, SLIDER)
+			if err != nil {
+				return err
+			}
+			trick := filepath.Join(SLIDER, podspaceHash)
+			localSlider.Links.VideoUrl = &trick
+		}
 
 		err = dbConnection.Save(ctx, &localSlider)
 		if err != nil {
@@ -1405,48 +1417,106 @@ func ProcessLocalAdvertisement(
 	content SharedModels.ProcessedContentSchema,
 	dbConnection dbclient.DBClient, apiclient *ApiClient.APIClient) error {
 
+	const ADS = "ADS"
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
 	defer cancel()
 	localAdvertisement := SharedModels.Advertisement{}
-	localAdvertisementLink := SharedModels.AdvertisementLink{}
+	// localAdvertisementLink := SharedModels.AdvertisementLink{}
 	localAdvertisement.ContentId = content.ID
 	if content.Enable {
 		detail := content.Details.(SharedModels.LocalAdvertisementSchema)
-		// Download filelink to destination
-		destinationFile, podspaceHash, err := DownloadVideo(apiclient, detail.FileLink, "ads")
-		if err != nil {
-			return err
+		if detail.AdsType == 1 || detail.AdsType == 3 {
+			if detail.MobileVideoLink != nil {
+				destinationFile, podspaceHash, err := DownloadVideo(apiclient, *detail.MobileVideoLink, ADS)
+				if err != nil {
+					return err
+				}
+				trick := filepath.Join(ADS, podspaceHash)
+				localAdvertisement.Link.MobileVideoLink = &trick
+				hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+				if err != nil {
+					return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+				}
+				trick2 := hex.EncodeToString(hash)
+				localAdvertisement.Link.MobileVideoHash = &trick2
+				trick3 := "mp4"
+				localAdvertisement.Link.MobileVideoLinkType = &trick3
+			}
+			if detail.VideoLink != nil {
+				destinationFile, podspaceHash, err := DownloadVideo(apiclient, *detail.VideoLink, ADS)
+				if err != nil {
+					return err
+				}
+				trick := filepath.Join(ADS, podspaceHash)
+				localAdvertisement.Link.VideoLink = &trick
+				hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+				if err != nil {
+					return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+				}
+				trick2 := hex.EncodeToString(hash)
+				localAdvertisement.Link.VideoHash = &trick2
+				trick3 := "mp4"
+				localAdvertisement.Link.VideoLinkType = &trick3
+			}
 		}
-		localAdvertisement.SkipDuration = int32(detail.SkipDuration)
-		localAdvertisement.Synced = false
-		localAdvertisementLink.LinkType = "MP4"
-		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
-		if err != nil {
-			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+
+		if detail.AdsType == 2 || detail.AdsType == 3 {
+			if detail.Banner != nil {
+				_, bannerDestination, err := DownloadImage(apiclient, *detail.Banner, ADS)
+				if err != nil {
+					return cstmerr.NewProcessError(
+						fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.Banner), err)
+				}
+				trick := filepath.Join(ADS, bannerDestination)
+				localAdvertisement.Link.BannerURL = &trick
+			}
+
+			if detail.MobileBanner != nil {
+				_, mobileBannerDestination, err := DownloadImage(apiclient, *detail.MobileBanner, ADS)
+				if err != nil {
+					return cstmerr.NewProcessError(
+						fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.MobileBanner), err)
+				}
+				trick := filepath.Join(ADS, mobileBannerDestination)
+				localAdvertisement.Link.MobileBannerURL = &trick
+
+			}
+
+			if detail.TabletBanner != nil {
+				_, tabletBannerDestination, err := DownloadImage(apiclient, *detail.TabletBanner, ADS)
+				if err != nil {
+					return cstmerr.NewProcessError(
+						fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.TabletBanner), err)
+				}
+				trick := filepath.Join(ADS, tabletBannerDestination)
+				localAdvertisement.Link.TabletBannerURL = &trick
+			}
 		}
-		localAdvertisementLink.FileHash = hex.EncodeToString(hash)
-		localAdvertisementLink.PlayLink = filepath.Join("ads", podspaceHash)
-		localAdvertisementLink.OriginalLink = detail.FileLink
-		localAdvertisement.Link = localAdvertisementLink
+
+		if detail.SkipDuration != nil {
+			localAdvertisement.SkipDuration = detail.SkipDuration
+		}
+		localAdvertisement.ViewCount = 0
+
 		dbConnection.Save(ctx, &localAdvertisement)
 	} else {
 		panic("not implemented")
 
 		//TODO: handle file deletion from filespace
-		err := dbConnection.First(ctx, &localAdvertisement)
-		if err != nil {
-			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
-		}
+		// err := dbConnection.First(ctx, &localAdvertisement)
+		// if err != nil {
+		// 	return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
+		// }
 
-		err = DeleteVideo(localAdvertisement.Link.PlayLink)
-		if err != nil {
-			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_FILE, err)
-		}
+		// err = DeleteVideo(localAdvertisement.Link.PlayLink)
+		// if err != nil {
+		// 	return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_FILE, err)
+		// }
 
-		err = dbConnection.Delete(ctx, &localAdvertisement)
-		if err != nil {
-			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
-		}
+		// err = dbConnection.Delete(ctx, &localAdvertisement)
+		// if err != nil {
+		// 	return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
+		// }
 
 	}
 	return nil

@@ -41,7 +41,7 @@ SET default_table_access_method = heap;
 CREATE TABLE public.ads (
     "contentId" bigint NOT NULL,
     "skipDuration" integer,
-    "adsType" character varying NOT NULL,
+    "adsType" integer NOT NULL,
     "actionName" character varying,
     "actionLink" character varying,
     link jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -65,21 +65,6 @@ CREATE TABLE public.ads_view (
 
 
 ALTER TABLE public.ads_view OWNER TO postgres;
-
---
--- Name: advertisement; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.advertisement (
-    "contentId" bigint NOT NULL,
-    "skipDuration" integer NOT NULL,
-    link jsonb DEFAULT '{}'::jsonb NOT NULL,
-    "viewCount" integer DEFAULT 0 NOT NULL,
-    synced boolean NOT NULL
-);
-
-
-ALTER TABLE public.advertisement OWNER TO postgres;
 
 --
 -- Name: album; Type: TABLE; Schema: public; Owner: podbox
@@ -724,12 +709,14 @@ CREATE TABLE public.usage (
     id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
     "usageByte" integer DEFAULT 0 NOT NULL,
     "usageSecond" integer DEFAULT 0 NOT NULL,
-    "entityId" bigint NOT NULL,
+    "entityId" bigint,
     "entityType" character varying NOT NULL,
-    synced boolean NOT NULL,
     "updateCount" integer DEFAULT 0 NOT NULL,
     "createdAt" timestamp with time zone DEFAULT now() NOT NULL,
-    "userId" uuid
+    "userId" uuid,
+    duration integer,
+    "contentId" bigint,
+    "updatedAt" timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -776,18 +763,18 @@ ALTER TABLE public.video OWNER TO podbox;
 --
 
 COPY public.ads ("contentId", "skipDuration", "adsType", "actionName", "actionLink", link, "viewCount") FROM stdin;
-51984466	5	VIDEO	\N	\N	{"videoHash": "50b8c7d6611d47deea20fc9c5ce444ef", "videoLink": "ads/zipod_1.mp4", "videoLinkType": "mp4", "mobileVideoHash": "50b8c7d6611d47deea20fc9c5ce444ef", "mobileVideoLink": "ads/zipod_1.mp4", "mobileVideoLinkType": "mp4"}	0
-52038594	5	VIDEO	\N	\N	{"videoHash": "a195c8677b4c4463c64e83c407e209bf", "videoLink": "ads/grand_dad.mp4", "videoLinkType": "mp4", "mobileVideoHash": "a195c8677b4c4463c64e83c407e209bf", "mobileVideoLink": "ads/grand_dad.mp4", "mobileVideoLinkType": "mp4"}	0
-52038595	5	VIDEO	\N	\N	{"videoHash": "56a8f393dadd0d8ea068b60f1f83ba00", "videoLink": "ads/zipod_3.mp4", "videoLinkType": "mp4", "mobileVideoHash": "56a8f393dadd0d8ea068b60f1f83ba00", "mobileVideoLink": "ads/zipod_3.mp4", "mobileVideoLinkType": "mp4"}	0
-52038597	5	VIDEO	\N	\N	{"videoHash": "7a59e630266bc13cfb4220ddd2e508b9", "videoLink": "ads/zipod_4.mp4", "videoLinkType": "mp4", "mobileVideoHash": "7a59e630266bc13cfb4220ddd2e508b9", "mobileVideoLink": "ads/zipod_4.mp4", "mobileVideoLinkType": "mp4"}	0
-52038712	5	VIDEO	\N	\N	{"videoHash": "a6cdd33d8bee65228fddd5dcecbd8916", "videoLink": "ads/boy.mp4", "videoLinkType": "mp4", "mobileVideoHash": "a6cdd33d8bee65228fddd5dcecbd8916", "mobileVideoLink": "ads/boy.mp4", "mobileVideoLinkType": "mp4"}	0
-52038791	5	VIDEO	\N	\N	{"videoHash": "fbbe552040b25e8abbe41e3467ff69de", "videoLink": "ads/girl.mp4", "videoLinkType": "mp4", "mobileVideoHash": "fbbe552040b25e8abbe41e3467ff69de", "mobileVideoLink": "ads/girl.mp4", "mobileVideoLinkType": "mp4"}	0
-52038793	5	VIDEO	\N	\N	{"videoHash": "60f1c73fd0fd48cfc7cb2596ed2223d8", "videoLink": "ads/mom.mp4", "videoLinkType": "mp4", "mobileVideoHash": "60f1c73fd0fd48cfc7cb2596ed2223d8", "mobileVideoLink": "ads/mom.mp4", "mobileVideoLinkType": "mp4"}	0
-52038794	5	VIDEO	\N	\N	{"videoHash": "a195c8677b4c4463c64e83c407e209bf", "videoLink": "ads/grand_dad.mp4", "videoLinkType": "mp4", "mobileVideoHash": "a195c8677b4c4463c64e83c407e209bf", "mobileVideoLink": "ads/grand_dad.mp4", "mobileVideoLinkType": "mp4"}	0
-52644737	\N	BANNER	\N	\N	{"bannerUrl": "af519253-a70a-4982-bdce-2c0cd9b65170.jpg", "mobileBannerUrl": "1db5b979-c019-402f-ad96-c80dcdcbcb73.jpg", "tabletBannerUrl": "ad23b676-fb98-43e2-9d4c-3243b454d4a4.jpg"}	0
-52644741	\N	BANNER	\N	\N	{"bannerUrl": "af519253-a70a-4982-bdce-2c0cd9b65170.jpg", "mobileBannerUrl": "1db5b979-c019-402f-ad96-c80dcdcbcb73.jpg", "tabletBannerUrl": "ad23b676-fb98-43e2-9d4c-3243b454d4a4.jpg"}	0
-52644743	\N	BANNER	\N	\N	{"bannerUrl": "af519253-a70a-4982-bdce-2c0cd9b65170.jpg", "mobileBannerUrl": "1db5b979-c019-402f-ad96-c80dcdcbcb73.jpg", "tabletBannerUrl": "ad23b676-fb98-43e2-9d4c-3243b454d4a4.jpg"}	0
-52644745	\N	BANNER	\N	\N	{"bannerUrl": "af519253-a70a-4982-bdce-2c0cd9b65170.jpg", "mobileBannerUrl": "1db5b979-c019-402f-ad96-c80dcdcbcb73.jpg", "tabletBannerUrl": "ad23b676-fb98-43e2-9d4c-3243b454d4a4.jpg"}	0
+52038597	5	1	\N	\N	{"videoHash": "7a59e630266bc13cfb4220ddd2e508b9", "videoLink": "ads/zipod_4.mp4", "videoLinkType": "mp4", "mobileVideoHash": "7a59e630266bc13cfb4220ddd2e508b9", "mobileVideoLink": "ads/zipod_4.mp4", "mobileVideoLinkType": "mp4"}	0
+52038712	5	1	\N	\N	{"videoHash": "a6cdd33d8bee65228fddd5dcecbd8916", "videoLink": "ads/boy.mp4", "videoLinkType": "mp4", "mobileVideoHash": "a6cdd33d8bee65228fddd5dcecbd8916", "mobileVideoLink": "ads/boy.mp4", "mobileVideoLinkType": "mp4"}	0
+52038791	5	1	\N	\N	{"videoHash": "fbbe552040b25e8abbe41e3467ff69de", "videoLink": "ads/girl.mp4", "videoLinkType": "mp4", "mobileVideoHash": "fbbe552040b25e8abbe41e3467ff69de", "mobileVideoLink": "ads/girl.mp4", "mobileVideoLinkType": "mp4"}	0
+52038793	5	1	\N	\N	{"videoHash": "60f1c73fd0fd48cfc7cb2596ed2223d8", "videoLink": "ads/mom.mp4", "videoLinkType": "mp4", "mobileVideoHash": "60f1c73fd0fd48cfc7cb2596ed2223d8", "mobileVideoLink": "ads/mom.mp4", "mobileVideoLinkType": "mp4"}	0
+52038794	5	1	\N	\N	{"videoHash": "a195c8677b4c4463c64e83c407e209bf", "videoLink": "ads/grand_dad.mp4", "videoLinkType": "mp4", "mobileVideoHash": "a195c8677b4c4463c64e83c407e209bf", "mobileVideoLink": "ads/grand_dad.mp4", "mobileVideoLinkType": "mp4"}	0
+52644737	\N	2	\N	\N	{"bannerUrl": "af519253-a70a-4982-bdce-2c0cd9b65170.jpg", "mobileBannerUrl": "1db5b979-c019-402f-ad96-c80dcdcbcb73.jpg", "tabletBannerUrl": "ad23b676-fb98-43e2-9d4c-3243b454d4a4.jpg"}	0
+52644741	\N	2	\N	\N	{"bannerUrl": "af519253-a70a-4982-bdce-2c0cd9b65170.jpg", "mobileBannerUrl": "1db5b979-c019-402f-ad96-c80dcdcbcb73.jpg", "tabletBannerUrl": "ad23b676-fb98-43e2-9d4c-3243b454d4a4.jpg"}	0
+52644743	\N	2	\N	\N	{"bannerUrl": "af519253-a70a-4982-bdce-2c0cd9b65170.jpg", "mobileBannerUrl": "1db5b979-c019-402f-ad96-c80dcdcbcb73.jpg", "tabletBannerUrl": "ad23b676-fb98-43e2-9d4c-3243b454d4a4.jpg"}	0
+51984466	5	1	\N	\N	{"videoHash": "50b8c7d6611d47deea20fc9c5ce444ef", "videoLink": "ads/zipod_1.mp4", "videoLinkType": "mp4", "mobileVideoHash": "50b8c7d6611d47deea20fc9c5ce444ef", "mobileVideoLink": "ads/zipod_1.mp4", "mobileVideoLinkType": "mp4"}	0
+52038594	5	1	\N	\N	{"videoHash": "a195c8677b4c4463c64e83c407e209bf", "videoLink": "ads/grand_dad.mp4", "videoLinkType": "mp4", "mobileVideoHash": "a195c8677b4c4463c64e83c407e209bf", "mobileVideoLink": "ads/grand_dad.mp4", "mobileVideoLinkType": "mp4"}	0
+52038595	5	1	\N	\N	{"videoHash": "56a8f393dadd0d8ea068b60f1f83ba00", "videoLink": "ads/zipod_3.mp4", "videoLinkType": "mp4", "mobileVideoHash": "56a8f393dadd0d8ea068b60f1f83ba00", "mobileVideoLink": "ads/zipod_3.mp4", "mobileVideoLinkType": "mp4"}	0
+52644745	\N	3	\N	\N	{"bannerUrl": "af519253-a70a-4982-bdce-2c0cd9b65170.jpg", "videoHash": "56a8f393dadd0d8ea068b60f1f83ba00", "videoLink": "ads/zipod_3.mp4", "videoLinkType": "mp4", "mobileBannerUrl": "1db5b979-c019-402f-ad96-c80dcdcbcb73.jpg", "mobileVideoHash": "56a8f393dadd0d8ea068b60f1f83ba00", "mobileVideoLink": "ads/zipod_3.mp4", "tabletBannerUrl": "ad23b676-fb98-43e2-9d4c-3243b454d4a4.jpg", "mobileVideoLinkType": "mp4"}	0
 \.
 
 
@@ -796,14 +783,6 @@ COPY public.ads ("contentId", "skipDuration", "adsType", "actionName", "actionLi
 --
 
 COPY public.ads_view (id, "adsId", "adsType", "createdAt", "userId") FROM stdin;
-\.
-
-
---
--- Data for Name: advertisement; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.advertisement ("contentId", "skipDuration", link, "viewCount", synced) FROM stdin;
 \.
 
 
@@ -841,7 +820,7 @@ COPY public.audiobook_album ("contentId", "entityId", genre, "publishDate", dura
 --
 
 COPY public.device_location (id, latitude, longitude, speed, synced, "createdAt") FROM stdin;
-a73ebb3f-047f-49b9-b57d-c087cc56d602	35.77298524	54.14702249	0	f	2025-06-29 07:25:00.038+00
+7f676b31-0f96-4b59-8584-1082f47809ea	35.55116327	53.78153468	0	f	2025-06-30 07:30:00.022+00
 \.
 
 
@@ -850,7 +829,7 @@ a73ebb3f-047f-49b9-b57d-c087cc56d602	35.77298524	54.14702249	0	f	2025-06-29 07:2
 --
 
 COPY public.device_resource (id, "cpuUsagePercent", "memoryUsagePercent", "driveUsagePercent", uptime, "inputBytes", "outputBytes", synced, "createdAt") FROM stdin;
-0500a866-5463-45ea-afc3-92e9fa2ce9e1	7.290	52.940	32.400	3336	\N	\N	f	2025-06-29 07:25:01.06+00
+3e01bbf9-a8de-41d6-80b7-793924833632	3.100	62.300	32.500	8968	\N	\N	f	2025-06-30 07:30:01.064+00
 \.
 
 
@@ -859,7 +838,7 @@ COPY public.device_resource (id, "cpuUsagePercent", "memoryUsagePercent", "drive
 --
 
 COPY public.device_uptime (id, duration, synced, "createdAt") FROM stdin;
-ce1d220c-8977-4143-93b7-5834901dbccd	5400	f	2025-06-29 05:15:00.15+00
+89f8b818-a248-43f1-8bba-1f93ebe6e89a	4800	f	2025-06-30 06:15:00.08+00
 \.
 
 
@@ -1722,7 +1701,7 @@ COPY public.slider ("contentId", type, "entityType", "entityId", "buttonTitle", 
 52039681			\N			{"imageUrl": "slider/SpaceKid-Desktop.jpg", "videoUrl": null, "logoImageUrl": "slider/SpaceKid-Logo.png", "smallImageUrl": "slider/SpaceKid-Mobile.jpg", "mediumImageUrl": "slider/SpaceKid-Tablet.jpg", "mobileVideoUrl": null}
 52039716			\N			{"imageUrl": "slider/Migration-Desktop.jpg", "videoUrl": null, "logoImageUrl": "slider/Migration-Logo.jpg", "smallImageUrl": "slider/Migration-Mobile.jpg", "mediumImageUrl": "slider/Migration-Tablet.jpg", "mobileVideoUrl": null}
 52039740			\N			{"imageUrl": "slider/Elemental-Desktop.jpg", "videoUrl": null, "logoImageUrl": "slider/Elemental-Logo.png", "smallImageUrl": "slider/Elemental-Mobile.jpg", "mediumImageUrl": "slider/Elemental-Tablet.jpg", "mobileVideoUrl": null}
-52039776			\N			{"imageUrl": "slider/AvayeVahsh-Desktop.jpg", "videoUrl": null, "logoImageUrl": "slider/AvayeVahsh-Logo.png", "smallImageUrl": "slider/AvayeVahsh-Mobile.jpg", "mediumImageUrl": "slider/AvayeVahsh-Tablet.jpg", "mobileVideoUrl": null}
+52039776		local-advertisement	52644745	مشاهده تبلیغ	https://app.podbox.ir	{"imageUrl": "slider/AvayeVahsh-Desktop.jpg", "videoUrl": null, "logoImageUrl": "slider/AvayeVahsh-Logo.png", "smallImageUrl": "slider/AvayeVahsh-Mobile.jpg", "mediumImageUrl": "slider/AvayeVahsh-Tablet.jpg", "mobileVideoUrl": null}
 \.
 
 
@@ -1859,10 +1838,17 @@ c70f48ee-a599-499d-8635-0075aa22e623	c86f46e6-5ee3-45c3-9204-6f89f899d6ec	\N	\N	
 -- Data for Name: usage; Type: TABLE DATA; Schema: public; Owner: podbox
 --
 
-COPY public.usage (id, "usageByte", "usageSecond", "entityId", "entityType", synced, "updateCount", "createdAt", "userId") FROM stdin;
-d0ec5ed0-c6af-4d79-a2c9-de960aaf3e23	0	0	3346133	movie-content	f	0	2025-05-12 10:52:03.937008+00	9c3482fd-108b-4109-983e-0efb0aef730c
-2cbe8703-b3fa-4588-ba5f-9d912fdaac41	0	0	3350538	movie-content	f	0	2025-05-12 10:58:28.208156+00	86270927-f825-41f8-a5bc-e046e3b703bc
-c5259c31-a2c4-4a30-ab78-8c8fbe6f3bc5	0	0	3349292	movie-content	f	0	2025-05-12 11:37:16.910905+00	86270927-f825-41f8-a5bc-e046e3b703bc
+COPY public.usage (id, "usageByte", "usageSecond", "entityId", "entityType", "updateCount", "createdAt", "userId", duration, "contentId", "updatedAt") FROM stdin;
+d0ec5ed0-c6af-4d79-a2c9-de960aaf3e23	0	0	3346133	movie-content	0	2025-05-12 10:52:03.937008+00	9c3482fd-108b-4109-983e-0efb0aef730c	\N	\N	2025-06-30 06:10:42.8235+00
+2cbe8703-b3fa-4588-ba5f-9d912fdaac41	0	0	3350538	movie-content	0	2025-05-12 10:58:28.208156+00	86270927-f825-41f8-a5bc-e046e3b703bc	\N	\N	2025-06-30 06:10:42.8235+00
+c5259c31-a2c4-4a30-ab78-8c8fbe6f3bc5	0	0	3349292	movie-content	0	2025-05-12 11:37:16.910905+00	86270927-f825-41f8-a5bc-e046e3b703bc	\N	\N	2025-06-30 06:10:42.8235+00
+dc659b62-764f-41bd-b18c-c4d7fe7356ee	0	0	\N	news-content	0	2025-06-30 07:03:11.100915+00	282c83e9-3467-48bc-9970-c9a7c1c050bc	\N	52266294	2025-06-30 07:03:11.100915+00
+b5b8d13d-1bc4-4ed3-b40d-d3f5a1c52d0a	0	0	\N	news-content	0	2025-06-30 07:04:21.178008+00	282c83e9-3467-48bc-9970-c9a7c1c050bc	\N	52266294	2025-06-30 07:04:21.178008+00
+cbe4293b-02db-4f0b-a54c-06b3faec6ab7	0	0	\N	news-content	0	2025-06-30 07:16:49.289048+00	282c83e9-3467-48bc-9970-c9a7c1c050bc	\N	52266294	2025-06-30 07:16:49.289048+00
+c5b2c9f3-2f2d-4ecd-a0b6-ddc8287c63e8	0	0	\N	movie-content	0	2025-06-30 07:17:18.127077+00	282c83e9-3467-48bc-9970-c9a7c1c050bc	\N	52044633	2025-06-30 07:17:18.127077+00
+bd10e566-ba74-4cea-b1d3-7a9851dbbf24	0	0	\N	movie-content	0	2025-06-30 07:17:24.128388+00	282c83e9-3467-48bc-9970-c9a7c1c050bc	\N	52044633	2025-06-30 07:17:24.128388+00
+997d3f28-c9a5-4d91-9c36-11674f405301	0	0	\N	news-content	0	2025-06-30 07:18:53.736478+00	282c83e9-3467-48bc-9970-c9a7c1c050bc	\N	52266294	2025-06-30 07:18:53.736478+00
+02c8ea0d-1cfe-4661-9317-22e88adbd088	0	0	\N	news-content	0	2025-06-30 07:18:53.973818+00	282c83e9-3467-48bc-9970-c9a7c1c050bc	\N	52266294	2025-06-30 07:18:53.973818+00
 \.
 
 
@@ -2127,14 +2113,6 @@ ALTER TABLE ONLY public.series_season
 
 ALTER TABLE ONLY public.device_resource
     ADD CONSTRAINT "PK_89734ff56d7103d7c1892f69a21" PRIMARY KEY (id);
-
-
---
--- Name: advertisement PK_a8a88c2bf087fe9305135d3d582; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.advertisement
-    ADD CONSTRAINT "PK_a8a88c2bf087fe9305135d3d582" PRIMARY KEY ("contentId");
 
 
 --
