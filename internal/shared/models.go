@@ -426,11 +426,12 @@ type LocalSliderSchema struct {
 	SmallImageURL  string  `json:"smallImageUrl"`
 	MediumImageURL string  `json:"mediumImageUrl"`
 	LogoImageURL   *string `json:"logoImageUrl,omitempty"`
-	MovieURL       *string `json:"movieUrl,omitempty"`
+	VideoURL       *string `json:"videoUrl,omitempty"`
+	MobileVideoURL *string `json:"mobileVideoUrl,omitempty"`
 	ButtonTitle    *string `json:"buttonTitle,omitempty"`
 	Link           *string `json:"link,omitempty"`
 	LocalTabIDs    []int   `json:"localTabIds"`
-	LocalContentID int64   `json:"localContentId"`
+	LocalContentID *int64  `json:"localContentId,omitempty"`
 	EntityType     *string `json:"entityType,omitempty"`
 }
 type LocalPollAnswer struct {

@@ -1300,17 +1300,28 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 		localSlider.Links.SmallImageUrl = &trick2
 
 		localSlider.Link = detail.Link
+		if detail.LocalContentID != nil {
+			localSlider.EntityId = detail.LocalContentID
+		}
 
-		localSlider.EntityId = &detail.LocalContentID
 		localSlider.EntityType = detail.EntityType
 
-		if detail.MovieURL != nil {
-			_, podspaceHash, err := DownloadVideo(apiclient, *detail.MovieURL, SLIDER)
+		if detail.VideoURL != nil {
+			_, podspaceHash, err := DownloadVideo(apiclient, *detail.VideoURL, SLIDER)
 			if err != nil {
 				return err
 			}
 			trick := filepath.Join(SLIDER, podspaceHash)
 			localSlider.Links.VideoUrl = &trick
+		}
+
+		if detail.MobileVideoURL != nil {
+			_, podspaceHash, err := DownloadVideo(apiclient, *detail.MobileVideoURL, SLIDER)
+			if err != nil {
+				return err
+			}
+			trick := filepath.Join(SLIDER, podspaceHash)
+			localSlider.Links.MobileVideoUrl = &trick
 		}
 
 		err = dbConnection.Save(ctx, &localSlider)
