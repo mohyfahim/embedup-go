@@ -1,0 +1,29 @@
+service_name = "podbox_update"
+current_version_file = ""
+
+update_check_api_url = ""
+status_report_api_url = ""
+content_update_api_url = ""
+content_detail_api_url = ""
+poll_interval_seconds = 300
+
+download_base_dir = ""
+
+decryption_key_hex = ""
+
+update_script_name = "update.sh"
+
+db_password = ""
+
+device_token = ""
+
+
+# --- Database Configuration ---
+[database]
+db_host = "localhost"
+db_port = 5432
+db_user = ""
+db_name = "content"
+db_sslmode = "disable"
+db_read_timeout = "5s"
+db_write_timeout = "5s"

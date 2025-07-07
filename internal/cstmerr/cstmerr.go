@@ -4,6 +4,16 @@ import (
 	"fmt"
 )
 
+/*
+ TempFileError (if you use temporary files)
+ type TempFileError struct{ BaseError }
+ func NewTempFileError(msg string, underlyingErr error) *TempFileError { ... }
+ You can then use type assertions or `errors.As` to check for specific error types:
+ if _, ok := err.(*customerrors.TimeoutError); ok { ... }
+ var timeoutErr *customerrors.TimeoutError
+ if errors.As(err, &timeoutErr) { ... }
+*/
+
 // BaseError provides a base for custom errors, allowing for wrapped errors.
 type BaseError struct {
 	Msg string
@@ -103,10 +113,6 @@ func NewHeadError(msg string) *HeadError {
 	return &HeadError{BaseError{Msg: "Head error: " + msg}}
 }
 
-// DecryptionError (if used)
-// type DecryptionError struct{ BaseError }
-// func NewDecryptionError(msg string, underlyingErr error) *DecryptionError { ... }
-
 // ArchiveError indicates a problem with archive extraction.
 type ArchiveError struct{ BaseError }
 
@@ -127,10 +133,6 @@ type FileSystemError struct{ BaseError }
 func NewFileSystemError(msg string) *FileSystemError {
 	return &FileSystemError{BaseError{Msg: "Filesystem error: " + msg}}
 }
-
-// HexError (if used for decryption key)
-// type HexError struct{ BaseError }
-// func NewHexError(msg string, underlyingErr error) *HexError { ... }
 
 // FileIOError indicates an I/O problem during file operations.
 type FileIOError struct{ BaseError }
@@ -179,15 +181,6 @@ func NewDBTransactionError(msg string, underlyingErr error) *DBTransactionError 
 	return &DBTransactionError{BaseError{Msg: "DB transaction error: " + msg, Err: underlyingErr}}
 }
 
-// TempFileError (if you use temporary files)
-// type TempFileError struct{ BaseError }
-// func NewTempFileError(msg string, underlyingErr error) *TempFileError { ... }
-
-// You can then use type assertions or `errors.As` to check for specific error types:
-// if _, ok := err.(*customerrors.TimeoutError); ok { ... }
-// var timeoutErr *customerrors.TimeoutError
-// if errors.As(err, &timeoutErr) { ... }
-
 type LinkParseError struct{ BaseError }
 
 func NewLinkParseError(msg string) *LinkParseError {
@@ -216,4 +209,5 @@ const (
 	PROCESS_FIND_DIRECTORY     = "unable to find directories inside of %s"
 	PROCESS_FIND_SUB_DIRECTORY = "unable to find subdirectory inside"
 	PROCESS_HASH_FIND          = "unable to get hash of file from server"
+	PROCESS_FILE_INFO          = "unable to get file info"
 )

@@ -131,6 +131,8 @@ func (ga *GORMAdapter) Connect(ctx context.Context) error {
 		return cstmerr.NewDBConnectionError("gorm.Open failed", err)
 	}
 
+	// ga.db = ga.db.Debug()
+
 	// TODO: Uncomment if you want to auto-migrate models
 	ga.db.AutoMigrate(&shared.Updater{})
 	// ga.db.AutoMigrate(shared.AutoMigrateList...)

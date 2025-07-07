@@ -46,8 +46,15 @@ type GenericContentItem struct {
 
 // LocalAdvertisementContent defines the structure for "local-advertisement" type.
 type LocalAdvertisementSchema struct {
-	FileLink     string `json:"fileLink"`
-	SkipDuration int    `json:"skipDuration"`
+	AdsType         int     `json:"asdType"`
+	VideoLink       *string `json:"videoLink,omitempty"`
+	MobileVideoLink *string `json:"mobileVideoLink,omitempty"`
+	Banner          *string `json:"banner,omitempty"`
+	MobileBanner    *string `json:"MobileBanner,omitempty"`
+	TabletBanner    *string `json:"tabletBanner,omitempty"`
+	SkipDuration    *int32  `json:"skipDuration,omitempty"`
+	ActionName      *string `json:"actionName,omitempty"`
+	ActionLink      *string `json:"actionLink,omitempty"`
 }
 
 type LocalPageSchema struct {
@@ -112,12 +119,288 @@ type LocalMovieContentDetailSchema struct {
 	DiscountPercent  int                    `json:"discountPercent"`
 	MultiProvider    bool                   `json:"multiProvider"`
 }
+
+type LocalSeriesEpisodeContentDetailSchema struct {
+	ID            int64        `json:"id"`
+	PostID        *int64       `json:"postId,omitempty"`
+	Name          string       `json:"name"`
+	NameEn        string       `json:"nameEn"`
+	ImageURL      string       `json:"imageUrl"`
+	UserPostInfo  UserPostInfo `json:"userPostInfo"`
+	NumOfLikes    int          `json:"numOfLikes"`
+	NumOfDisLikes int          `json:"numOfDisLikes"`
+	LikePercent   int          `json:"likePercent"`
+	Price         int          `json:"price"`
+	PriceWithVat  int          `json:"priceWithVat"`
+	Vat           int          `json:"vat"`
+	Index         int          `json:"index"`
+	MultiQuality  bool         `json:"multiQuality"`
+	MultiProvider bool         `json:"multiProvider"`
+}
+
+type LocalSeriesSeasonContentDetailSchema struct {
+	ID            int          `json:"id"`
+	Description   *string      `json:"description,omitempty"`
+	ImageURL      string       `json:"imageUrl"`
+	NameEn        string       `json:"nameEn"`
+	Name          string       `json:"name"`
+	UserPostInfo  UserPostInfo `json:"userPostInfo"`
+	NumOfLikes    int          `json:"numOfLikes"`
+	NumOfDisLikes int          `json:"numOfDisLikes"`
+	LikePercent   int          `json:"likePercent"`
+	Index         int          `json:"index"`
+}
+
+type LocalSeriesContentDetailSchema struct {
+	ID               int                    `json:"id"`
+	Description      string                 `json:"description"`
+	ImageURL         string                 `json:"imageUrl"`
+	PostID           *int64                 `json:"postId,omitempty"`
+	NameEn           string                 `json:"nameEn"`
+	NameFa           string                 `json:"nameFa"`
+	Casts            []PersonDTO            `json:"casts"`
+	Ages             int                    `json:"ages"`
+	Company          string                 `json:"company"`
+	IMDBCode         string                 `json:"imdbCode"`
+	IMDBRate         *float64               `json:"imdbRate,omitempty"`
+	Summary          *string                `json:"summary,omitempty"`
+	YearsOFBroadcast int                    `json:"yearsOfBroadcast"`
+	Genres           []MovieGenre           `json:"genres"`
+	Galleries        []*string              `json:"galleries"`
+	Counteries       []*Countery            `json:"counteries"`
+	BannerURL        string                 `json:"bannerUrl"`
+	MobileBannerURL  string                 `json:"mobileBannerUrl"`
+	ShowTech         []*LocalShowTechSchema `json:"showTech"`
+	UserPostInfo     UserPostInfo           `json:"userPostInfo"`
+	NumOfLikes       int                    `json:"numOfLikes"`
+	NumOfDisLikes    int                    `json:"numOfDisLikes"`
+	LikePercent      int                    `json:"likePercent"`
+	Price            int                    `json:"price"`
+	Saleable         bool                   `json:"saleable"`
+	DiscountPercent  int                    `json:"discountPercent"`
+}
+
+type PodcastLanguage struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+type AudiobookLanguage struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+type AlbumLanguage struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+type MusicLanguage struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+type LocalPodcastParentContentDetailSchema struct {
+	ID           int64           `json:"id"`
+	ImageURL     string          `json:"imageUrl"`
+	BannerURL    string          `json:"bannerUrl"`
+	PostID       *int64          `json:"postId,omitempty"`
+	NameFa       string          `json:"nameFa"`
+	Genre        *PodcastGenre   `json:"genre,omitempty"`
+	Duration     int             `json:"duration"`
+	Size         int             `json:"size"`
+	SectionCount int             `json:"sectionCount"`
+	Language     PodcastLanguage `json:"language"`
+	PublishDate  int             `json:"publishDate"`
+	Ages         *int            `json:"ages"`
+	Galleries    []*string       `json:"galleries"`
+	Agents       []*PersonDTO    `json:"agents"`
+	Note         *string         `json:"note"`
+	Price        int             `json:"price"`
+	UserPostInfo UserPostInfo    `json:"userPostInfo"`
+}
+
+type LocalAudiobookParentContentDetailSchema struct {
+	ID           int64             `json:"id"`
+	Description  string            `json:"description"`
+	ImageURL     string            `json:"imageUrl"`
+	BannerURL    string            `json:"bannerUrl"`
+	PostID       *int64            `json:"postId,omitempty"`
+	NameFa       string            `json:"nameFa"`
+	Genre        *AudioBookGenre   `json:"genre,omitempty"`
+	Duration     int               `json:"duration"`
+	Size         int               `json:"size"`
+	SectionCount int               `json:"sectionCount"`
+	Language     AudiobookLanguage `json:"language"`
+	PublishDate  int               `json:"publishDate"`
+	Ages         *int              `json:"ages"`
+	Galleries    []*string         `json:"galleries"`
+	Agents       []*PersonDTO      `json:"agents"`
+	Note         *string           `json:"note"`
+	Price        int               `json:"price"`
+	UserPostInfo UserPostInfo      `json:"userPostInfo"`
+}
+
+type LocalPodcastContentDetailSchema struct {
+	ID           int64             `json:"id"`
+	Description  string            `json:"description"`
+	ImageURL     string            `json:"imageUrl"`
+	BannerURL    string            `json:"bannerUrl"`
+	AlbumID      *int64            `json:"albumId,omitempty"`
+	PostID       *int64            `json:"postId,omitempty"`
+	NameFa       string            `json:"nameFa"`
+	Genre        *PodcastGenre     `json:"genre,omitempty"`
+	Duration     *int              `json:"duration"`
+	Size         int               `json:"size"`
+	Language     AudiobookLanguage `json:"language"`
+	PublishDate  int               `json:"publishDate"`
+	Ages         *int32            `json:"ages"`
+	Galleries    []*string         `json:"galleries"`
+	Agents       []*PersonDTO      `json:"agents"`
+	Note         *string           `json:"note"`
+	Price        int               `json:"price"`
+	UserPostInfo UserPostInfo      `json:"userPostInfo"`
+}
+
+type LocalAudiobookContentDetailSchema struct {
+	ID           int64             `json:"id"`
+	ImageURL     string            `json:"imageUrl"`
+	BannerURL    string            `json:"bannerUrl"`
+	AlbumID      *int64            `json:"albumId,omitempty"`
+	PostID       *int64            `json:"postId,omitempty"`
+	NameFa       string            `json:"nameFa"`
+	Genre        *AudioBookGenre   `json:"genre,omitempty"`
+	Duration     *int              `json:"duration"`
+	Size         int               `json:"size"`
+	Language     AudiobookLanguage `json:"language"`
+	PublishDate  int               `json:"publishDate"`
+	Ages         *int32            `json:"ages"`
+	Galleries    []*string         `json:"galleries"`
+	Agents       []*PersonDTO      `json:"agents"`
+	Note         *string           `json:"note"`
+	Price        int               `json:"price"`
+	UserPostInfo UserPostInfo      `json:"userPostInfo"`
+}
+
+type LocalAlbumContentDetailSchema struct {
+	ID          int64            `json:"id"`
+	Description *string          `json:"description,omitempty"`
+	ImageURL    string           `json:"imageUrl"`
+	BannerURL   string           `json:"bannerUrl"`
+	NameFa      string           `json:"nameFa"`
+	Genre       *AlbumGenre      `json:"genre,omitempty"`
+	Counteries  []*Countery      `json:"counteries"`
+	Languages   []*AlbumLanguage `json:"languages"`
+	MusicCount  *int             `json:"musicCount"`
+	Galleries   []*string        `json:"galleries"`
+	Agents      []*PersonDTO     `json:"agents"`
+	Price       int              `json:"price"`
+}
+
+type LocalMusicContentDetailSchema struct {
+	ID            int64            `json:"id"`
+	Description   *string          `json:"description,omitempty"`
+	AlbumId       *int64           `json:"albumId"`
+	ImageURL      string           `json:"imageUrl"`
+	BannerURL     string           `json:"bannerUrl"`
+	PostID        *int64           `json:"postId,omitempty"`
+	NameFa        string           `json:"nameFa"`
+	PublishDate   *int64           `json:"publishDate"`
+	Agents        []*PersonDTO     `json:"agents"`
+	Languages     []*MusicLanguage `json:"languages"`
+	Genre         []*MusicGenre    `json:"genre,omitempty"`
+	Counteries    []*Countery      `json:"counteries"`
+	Duration      *int             `json:"duration"`
+	UserPostInfo  UserPostInfo     `json:"userPostInfo"`
+	NumOfLikes    int              `json:"numOfLikes"`
+	NumOfDisLikes int              `json:"numOfDisLikes"`
+	LikePercent   int              `json:"likePercent"`
+	Price         int              `json:"price"`
+	PriceWithVat  int              `json:"priceWithVat"`
+	Vat           int              `json:"vat"`
+}
+
+type LocalContentDetailSchema interface {
+	LocalAudiobookContentDetailSchema | LocalPodcastContentDetailSchema |
+		LocalAudiobookParentContentDetailSchema | LocalPodcastParentContentDetailSchema |
+		LocalSeriesEpisodeContentDetailSchema | LocalSeriesSeasonContentDetailSchema |
+		LocalSeriesContentDetailSchema | LocalMovieContentDetailSchema | LocalAlbumContentDetailSchema
+}
+
+type LocalMusicContentSchema struct {
+	Type      string                        `json:"type"`
+	Content   LocalMusicContentDetailSchema `json:"content"`
+	IsBuyed   bool                          `json:"isBuyed"`
+	BuyedTime int                           `json:"buyedTime"`
+}
+
+type LocalAlbumContentSchema struct {
+	Type      string                        `json:"type"`
+	Content   LocalAlbumContentDetailSchema `json:"content"`
+	IsBuyed   bool                          `json:"isBuyed"`
+	BuyedTime int                           `json:"buyedTime"`
+}
+
 type LocalMovieContentSchema struct {
 	Type      string                        `json:"type"`
 	Content   LocalMovieContentDetailSchema `json:"content"`
 	IsBuyed   bool                          `json:"isBuyed"`
 	BuyedTime int                           `json:"buyedTime"`
 }
+
+type LocalSeriesContentSchema struct {
+	Type      string                         `json:"type"`
+	Content   LocalSeriesContentDetailSchema `json:"content"`
+	IsBuyed   bool                           `json:"isBuyed"`
+	BuyedTime int                            `json:"buyedTime"`
+}
+
+type LocalSeriesSeasonContentSchema struct {
+	Type      string                               `json:"type"`
+	Content   LocalSeriesSeasonContentDetailSchema `json:"content"`
+	IsBuyed   bool                                 `json:"isBuyed"`
+	BuyedTime int                                  `json:"buyedTime"`
+}
+type LocalSeriesEpisodeContentSchema struct {
+	Type      string                                `json:"type"`
+	Content   LocalSeriesEpisodeContentDetailSchema `json:"content"`
+	IsBuyed   bool                                  `json:"isBuyed"`
+	BuyedTime int                                   `json:"buyedTime"`
+}
+type LocalPodcastParentContentSchema struct {
+	Type      string                                `json:"type"`
+	Content   LocalPodcastParentContentDetailSchema `json:"content"`
+	IsBuyed   bool                                  `json:"isBuyed"`
+	BuyedTime int                                   `json:"buyedTime"`
+}
+type LocalAudiobookParentContentSchema struct {
+	Type      string                                  `json:"type"`
+	Content   LocalAudiobookParentContentDetailSchema `json:"content"`
+	IsBuyed   bool                                    `json:"isBuyed"`
+	BuyedTime int                                     `json:"buyedTime"`
+}
+
+type LocalPodcastContentSchema struct {
+	Type      string                          `json:"type"`
+	Content   LocalPodcastContentDetailSchema `json:"content"`
+	IsBuyed   bool                            `json:"isBuyed"`
+	BuyedTime int                             `json:"buyedTime"`
+}
+
+type LocalAudiobookContentSchema struct {
+	Type      string                            `json:"type"`
+	Content   LocalAudiobookContentDetailSchema `json:"content"`
+	IsBuyed   bool                              `json:"isBuyed"`
+	BuyedTime int                               `json:"buyedTime"`
+}
+
+type LocalContentSchema interface {
+	LocalAudiobookContentSchema | LocalPodcastContentSchema |
+		LocalAudiobookParentContentSchema | LocalPodcastParentContentSchema |
+		LocalSeriesEpisodeContentSchema | LocalSeriesSeasonContentSchema |
+		LocalSeriesContentSchema | LocalMovieContentSchema | LocalAlbumContentSchema
+}
+
 type LocalMovieSchema struct {
 	FileLink string `json:"fileLink"`
 	MovieID  int64  `json:"movieId"`
@@ -126,12 +409,12 @@ type LocalSeriesSchema struct {
 	SeriesID int `json:"seriesId"`
 }
 type LocalSeriesSeasonSchema struct {
-	LocalSeriesID int `json:"localSeriesId"`
-	SeasonID      int `json:"seasonId"`
+	LocalSeriesID int64 `json:"localSeriesId"`
+	SeasonID      int   `json:"seasonId"`
 }
 type LocalSeriesEpisodeSchema struct {
 	FileLink      string `json:"fileLink"`
-	LocalSeasonID int    `json:"localSeasonId"`
+	LocalSeasonID int64  `json:"localSeasonId"`
 	EpisodeID     int    `json:"episodeId"`
 }
 type LocalMovieGenreSchema struct {
@@ -143,11 +426,13 @@ type LocalSliderSchema struct {
 	SmallImageURL  string  `json:"smallImageUrl"`
 	MediumImageURL string  `json:"mediumImageUrl"`
 	LogoImageURL   *string `json:"logoImageUrl,omitempty"`
-	MovieURL       string  `json:"movieUrl"`
+	VideoURL       *string `json:"videoUrl,omitempty"`
+	MobileVideoURL *string `json:"mobileVideoUrl,omitempty"`
 	ButtonTitle    *string `json:"buttonTitle,omitempty"`
 	Link           *string `json:"link,omitempty"`
 	LocalTabIDs    []int   `json:"localTabIds"`
-	LocalContentID int     `json:"localContentId"`
+	LocalContentID *int64  `json:"localContentId,omitempty"`
+	EntityType     *string `json:"entityType,omitempty"`
 }
 type LocalPollAnswer struct {
 	ID    string `json:"id"`
@@ -163,13 +448,13 @@ type LocalPollSchema struct {
 }
 type LocalSectionContentSchema struct {
 	Priority          int    `json:"priority"`
-	LocalSectionID    int    `json:"localSectionId"`
-	EntityContentID   int    `json:"entityContentId"`
-	EntityContentType string `json:"entityContentType"`
+	LocalSectionID    int64  `json:"localSectionId"`
+	EntityContentID   int64  `json:"entitiContentId"`
+	EntityContentType string `json:"entitiContentType"`
 }
 type LocalPodcastSchema struct {
 	PodcastID            int    `json:"podcastId"`
-	LocalPodcastParentID int    `json:"localPodcastParentId"`
+	LocalPodcastParentID int64  `json:"localPodcastParentId"`
 	FileLink             string `json:"fileLink"`
 }
 type LocalPodcastParentSchema struct {
@@ -177,7 +462,7 @@ type LocalPodcastParentSchema struct {
 }
 type LocalAudiobookSchema struct {
 	AudiobookID            int    `json:"audiobookId"`
-	LocalAudiobookParentID int    `json:"localAudiobookParentId"`
+	LocalAudiobookParentID int64  `json:"localAudiobookParentId"`
 	FileLink               string `json:"fileLink"`
 }
 type LocalAudiobookParentSchema struct {
@@ -185,12 +470,30 @@ type LocalAudiobookParentSchema struct {
 }
 type LocalMusicSchema struct {
 	MusicID      int    `json:"musicId"`
-	LocalAlbumID int    `json:"localAlbumId"`
+	LocalAlbumID *int64 `json:"localAlbumId"`
 	FileLink     string `json:"fileLink"`
 }
 type LocalAlbumSchema struct {
 	AlbumID int `json:"albumId"`
 }
+type LocalNewsSchema struct {
+	Title       string  `json:"title"`
+	ImageURL    *string `json:"imageUrl,omitempty"`
+	BannerURL   *string `json:"bannerUrl,omitempty"`
+	LongText    string  `json:"longText"`
+	Text        string  `json:"text"`
+	ReleaseTime int     `json:"releaseTime"`
+}
+
+type LocalMagazineSchema struct {
+	Title       string  `json:"title"`
+	ImageURL    *string `json:"imageUrl,omitempty"`
+	BannerURL   *string `json:"bannerUrl,omitempty"`
+	LongText    string  `json:"longText"`
+	Text        string  `json:"text"`
+	ReleaseTime int     `json:"releaseTime"`
+}
+
 type LocalDeviceUpdateSchema struct {
 	VersionCode int    `json:"versionCode"`
 	FileURL     string `json:"fileUrl"`

@@ -290,7 +290,7 @@ func main() {
 	var updater shared.Updater
 	err = dbConn.First(ctx, &updater)
 	if err != nil {
-		log.Fatalf("Failed to retrieve updater record from database: %v", err)
+		log.Printf("Failed to retrieve updater record from database: %v\n", err)
 		updater.LastFromTimeStamp = 0
 		//TODO: create instance of updater
 	}

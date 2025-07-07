@@ -8,6 +8,7 @@ import (
 	SharedModels "embedup-go/internal/shared"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -73,10 +74,11 @@ func DownloadImage(apiclient *ApiClient.APIClient, url string, dir ...string) (s
 		log.Printf("Error in creating path %s: %v", destinationPath, err)
 	}
 
-	fileInformation, err := apiclient.GetFileInformation(url)
+	fileInformation := SharedModels.FileInformation{}
+	err = apiclient.GetFileInformation(url, &fileInformation)
 
 	if err != nil {
-		fileInformation.MD5 = SharedModels.CalculateStringMD5(url)
+		return "", "", cstmerr.NewProcessError(cstmerr.PROCESS_FILE_INFO, err)
 	}
 
 	fileNameWithPrefix := fileInformation.MD5 + ".jpg"
@@ -109,10 +111,11 @@ func DownloadVideo(apiclient *ApiClient.APIClient, url string, dir ...string) (s
 		log.Printf("Error in creating path %s: %v", destinationPath, err)
 	}
 
-	fileInformation, err := apiclient.GetFileInformation(url)
+	fileInformation := SharedModels.FileInformation{}
+	err = apiclient.GetFileInformation(url, &fileInformation)
 
 	if err != nil {
-		fileInformation.MD5 = SharedModels.CalculateStringMD5(url)
+		return "", "", cstmerr.NewProcessError(cstmerr.PROCESS_FILE_INFO, err)
 	}
 
 	fileNameWithPrefix := fileInformation.MD5 + ".mp4"
@@ -131,13 +134,13 @@ func DownloadVideo(apiclient *ApiClient.APIClient, url string, dir ...string) (s
 	return destinationFile, fileNameWithPrefix, nil
 }
 
-func DownloadZippedVideo(apiclient *ApiClient.APIClient, url string, dir ...string) (string, string, error) {
+func DownloadAudio(apiclient *ApiClient.APIClient, url string, dir ...string) (string, string, error) {
 
 	contentBasePath := os.Getenv("PODBOX_UPDATE_CONTENT_BASE_PATH")
 	if contentBasePath == "" {
 		contentBasePath = "/mnt/sdcard/assets/"
 	}
-	destinationPath := filepath.Join(append([]string{contentBasePath, "videos"}, dir...)...)
+	destinationPath := filepath.Join(append([]string{contentBasePath, "audios"}, dir...)...)
 
 	log.Printf("destination path for download file : %s \n", destinationPath)
 	err := SharedModels.CheckAndCreateDir(destinationPath)
@@ -145,13 +148,14 @@ func DownloadZippedVideo(apiclient *ApiClient.APIClient, url string, dir ...stri
 		log.Printf("Error in creating path %s: %v", destinationPath, err)
 	}
 
-	fileInformation, err := apiclient.GetFileInformation(url)
+	fileInformation := SharedModels.FileInformation{}
+	err = apiclient.GetFileInformation(url, &fileInformation)
 
 	if err != nil {
-		fileInformation.MD5 = SharedModels.CalculateStringMD5(url)
+		return "", "", cstmerr.NewProcessError(cstmerr.PROCESS_FILE_INFO, err)
 	}
 
-	fileNameWithPrefix := fileInformation.MD5 + ".zip"
+	fileNameWithPrefix := fileInformation.MD5 + ".mp3"
 
 	destinationFile := filepath.Join(destinationPath, fileNameWithPrefix)
 	log.Printf("destination file: %s", destinationFile)
@@ -163,13 +167,76 @@ func DownloadZippedVideo(apiclient *ApiClient.APIClient, url string, dir ...stri
 		return "", "", cstmerr.NewDownloadError(
 			fmt.Sprintf("failed to download multiple times: %s", url))
 	}
-	destinationExtracted := filepath.Join(destinationPath, fileInformation.MD5)
-	//TODO: enable this
-	// err = SharedModels.UnzipFile(destinationFile, destinationExtracted)
-	// if err != nil {
-	// 	return "", "", err
-	// }
-	return destinationExtracted, fileNameWithPrefix, nil
+
+	return destinationFile, fileNameWithPrefix, nil
+}
+
+func GetDirectorySize(path string) (int64, error) {
+	var totalSize int64
+	err := filepath.Walk(path, func(filePath string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			totalSize += info.Size()
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("error walking directory: %w", err)
+	}
+	return totalSize, nil
+}
+
+func CheckExtractedExist(apiclient *ApiClient.APIClient,
+	downloadLink string, fileInformation *SharedModels.FileInformation) (bool, error) {
+	contentBasePath := os.Getenv("PODBOX_UPDATE_CONTENT_BASE_PATH")
+	if contentBasePath == "" {
+		contentBasePath = "/mnt/sdcard/assets/"
+	}
+	destinationPath := filepath.Join(contentBasePath, "videos")
+
+	err := apiclient.GetFileInformation(downloadLink, fileInformation)
+
+	if err != nil {
+		return false, cstmerr.NewProcessError(cstmerr.PROCESS_FILE_INFO, err)
+	}
+
+	fileInformation.FileNameWithPrefix = fileInformation.MD5 + ".zip"
+	fileInformation.DestinationPath = filepath.Join(destinationPath, fileInformation.FileNameWithPrefix)
+	fileInformation.DestinationExtracted = filepath.Join(destinationPath, fileInformation.MD5)
+
+	info, err := os.Stat(fileInformation.DestinationExtracted)
+	if err != nil && os.IsNotExist(err) {
+		log.Printf("Error in finding directory %s: %v\n", fileInformation.DestinationExtracted, err)
+		return false, nil
+	} else if err != nil {
+		log.Printf("Error in finding directory %s: %v\n", fileInformation.DestinationExtracted, err)
+		return false, err
+	} else if info.IsDir() {
+		log.Printf("Directory '%s' exists.\n", fileInformation.DestinationExtracted)
+		return true, nil
+	}
+	log.Printf("Error in finding directory %s: %v\n", fileInformation.DestinationExtracted, err)
+	return false, nil
+}
+
+func DownloadZippedVideo(apiclient *ApiClient.APIClient, url string,
+	fileInformation *SharedModels.FileInformation, dir ...string) error {
+
+	err := apiclient.DownloadFileWithRetry(url, fileInformation.DestinationPath)
+
+	if err != nil {
+		log.Printf("error in downloading hash")
+		return cstmerr.NewDownloadError(
+			fmt.Sprintf("failed to download multiple times: %s", url))
+	}
+
+	err = SharedModels.UnzipFile(fileInformation.DestinationPath, fileInformation.DestinationExtracted)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func FetchAndProcessContentUpdates(apiClientInstance *ApiClient.APIClient,
@@ -224,20 +291,46 @@ func ProcessContentItem(content SharedModels.ProcessedContentSchema,
 	switch v := content.Details.(type) {
 	case SharedModels.LocalAdvertisementSchema:
 		return ProcessLocalAdvertisement(content, dbConnection, apiClient)
-	// case SharedModels.LocalPageSchema:
-	// 	return ProcessLocalPage(content, dbConnection)
-	// case SharedModels.LocalTabSchema:
-	// 	return ProcessLocalTab(content, dbConnection)
-	// case SharedModels.LocalSliderSchema:
-	// 	return ProcessLocalSlider(content, dbConnection, apiClient)
-	// case SharedModels.LocalMovieGenreSchema:
-	// 	return ProcessLocalMovieGenre(content, dbConnection, apiClient)
-	// case SharedModels.LocalSectionSchema:
-	// 	return ProcessLocalSection(content, dbConnection)
-	// case SharedModels.LocalPollSchema:
-	// 	return ProcessLocalPoll(content, dbConnection)
+	case SharedModels.LocalPageSchema:
+		return ProcessLocalPage(content, dbConnection)
+	case SharedModels.LocalTabSchema:
+		return ProcessLocalTab(content, dbConnection)
+	case SharedModels.LocalSliderSchema:
+		return ProcessLocalSlider(content, dbConnection, apiClient)
+	case SharedModels.LocalMovieGenreSchema:
+		return ProcessLocalMovieGenre(content, dbConnection, apiClient)
+	case SharedModels.LocalSectionSchema:
+		return ProcessLocalSection(content, dbConnection)
+	case SharedModels.LocalPollSchema:
+		return ProcessLocalPoll(content, dbConnection)
 	case SharedModels.LocalMovieSchema:
 		return ProcessLocalMovie(content, dbConnection, apiClient)
+	case SharedModels.LocalSeriesSchema:
+		return ProcessLocalSeries(content, dbConnection, apiClient)
+	case SharedModels.LocalSeriesSeasonSchema:
+		return ProcessLocalSeriesSeason(content, dbConnection, apiClient)
+	case SharedModels.LocalSeriesEpisodeSchema:
+		return ProcessLocalEpisodeSeason(content, dbConnection, apiClient)
+	case SharedModels.LocalSectionContentSchema:
+		return ProcessLocalSectionContent(content, dbConnection)
+	case SharedModels.LocalPodcastParentSchema:
+		return ProcessLocalPodcastParent(content, dbConnection, apiClient)
+	case SharedModels.LocalAudiobookParentSchema:
+		return ProcessLocalAudiobookParent(content, dbConnection, apiClient)
+	case SharedModels.LocalPodcastSchema:
+		return ProcessLocalPodcast(content, dbConnection, apiClient)
+	case SharedModels.LocalAudiobookSchema:
+		return ProcessLocalAudiobook(content, dbConnection, apiClient)
+	case SharedModels.LocalAlbumSchema:
+		return ProcessLocalAlbum(content, dbConnection, apiClient)
+	case SharedModels.LocalMusicSchema:
+		return ProcessLocalMusic(content, dbConnection, apiClient)
+	case SharedModels.LocalTermsConditionsSchema:
+		return ProcessLocalTerms(content, dbConnection)
+	case SharedModels.LocalMagazineSchema:
+		return ProcessLocalMagazine(content, dbConnection, apiClient)
+	case SharedModels.LocalNewsSchema:
+		return ProcessLocalNews(content, dbConnection, apiClient)
 	default:
 		log.Printf("Cannot perform specific action for type %T", v)
 	}
@@ -245,11 +338,700 @@ func ProcessContentItem(content SharedModels.ProcessedContentSchema,
 	return nil
 }
 
-func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
+func ProcessLocalNews(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localNews := SharedModels.News{}
+	detail := content.Details.(SharedModels.LocalNewsSchema)
+	localNews.ContentId = content.ID
+	if content.Enable {
+
+		if detail.ImageURL != nil {
+			_, imageUrlPodspaceHash, err := DownloadImage(apiClient, *detail.ImageURL, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.ImageURL), err)
+			}
+			localNews.Image.ImageURL = &imageUrlPodspaceHash
+		}
+		if detail.BannerURL != nil {
+			_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, *detail.BannerURL, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.BannerURL), err)
+			}
+			localNews.Image.BannerUrl = &bannerUrlPodspaceHash
+		}
+
+		localNews.LongText = detail.LongText
+		localNews.Text = &detail.Text
+
+		publishDate := time.UnixMilli(int64(detail.ReleaseTime))
+		localNews.ReleaseTime = &publishDate
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err := dbConnection.Save(ctx, &localNews)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create news", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalMagazine(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localMag := SharedModels.Magazine{}
+	detail := content.Details.(SharedModels.LocalMagazineSchema)
+	localMag.ContentId = content.ID
+	if content.Enable {
+
+		if detail.ImageURL != nil {
+			_, imageUrlPodspaceHash, err := DownloadImage(apiClient, *detail.ImageURL, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.ImageURL), err)
+			}
+			localMag.Image.ImageURL = &imageUrlPodspaceHash
+		}
+		if detail.BannerURL != nil {
+			_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, *detail.BannerURL, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.BannerURL), err)
+			}
+			localMag.Image.BannerUrl = &bannerUrlPodspaceHash
+		}
+
+		localMag.LongText = detail.LongText
+		localMag.Text = &detail.Text
+
+		publishDate := time.UnixMilli(int64(detail.ReleaseTime))
+		localMag.ReleaseTime = &publishDate
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err := dbConnection.Save(ctx, &localMag)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create news", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalTerms(content SharedModels.ProcessedContentSchema, dbConnection dbclient.DBClient) error {
+	localTerm := SharedModels.TermsConditions{}
+	detail := content.Details.(SharedModels.LocalTermsConditionsSchema)
+	localTerm.ContentId = content.ID
+	if content.Enable {
+		localTerm.Content = detail.Content
+		localTerm.Name = detail.Name
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err := dbConnection.Save(ctx, &localTerm)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalMusic(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localMusic := SharedModels.Music{}
+	detail := content.Details.(SharedModels.LocalMusicSchema)
+	localMusic.ContentId = content.ID
+	if content.Enable {
+		musicDetail, err := apiClient.GetMusicDetail(int(detail.MusicID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localMusic.EntityId = musicDetail.ID
+		localMusic.Description = musicDetail.Description
+		localMusic.AlbumContentId = detail.LocalAlbumID
+		localMusic.Genres = musicDetail.Genre
+		localMusic.Name = musicDetail.NameFa
+		if musicDetail.PublishDate != nil {
+			publishDate := time.UnixMilli(int64(*musicDetail.PublishDate))
+			localMusic.PublishDate = &publishDate
+		}
+
+		for _, agent := range musicDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, musicDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
+		localMusic.Agents = musicDetail.Agents
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, musicDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, musicDetail.ImageURL), err)
+		}
+		localMusic.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, musicDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, musicDetail.BannerURL), err)
+		}
+		localMusic.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		destinationFile, podspaceHash, err := DownloadAudio(apiClient, detail.FileLink)
+		if err != nil {
+			return err
+		}
+
+		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+		}
+		localMusic.Link.FileHash = hex.EncodeToString(hash)
+		localMusic.Link.PlayLink = podspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localMusic)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalAlbum(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localAlbum := SharedModels.Album{}
+	detail := content.Details.(SharedModels.LocalAlbumSchema)
+	localAlbum.ContentId = content.ID
+	if content.Enable {
+		albumDetail, err := apiClient.GetAlbumDetail(int(detail.AlbumID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localAlbum.EntityId = albumDetail.ID
+		localAlbum.Description = albumDetail.Description
+		localAlbum.Name = albumDetail.NameFa
+		localAlbum.Genre = albumDetail.Genre
+
+		for _, agent := range albumDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, albumDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
+		localAlbum.Agents = albumDetail.Agents
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, albumDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, albumDetail.ImageURL), err)
+		}
+		localAlbum.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, albumDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, albumDetail.BannerURL), err)
+		}
+		localAlbum.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localAlbum)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+
+		panic("not implemented")
+	}
+	return nil
+}
+func ProcessLocalAudiobook(content SharedModels.ProcessedContentSchema,
 	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
-	defer cancel()
+	localAudiobook := SharedModels.AudioBook{}
+	detail := content.Details.(SharedModels.LocalAudiobookSchema)
+	localAudiobook.ContentId = content.ID
+	if content.Enable {
+		audiobookDetail, err := apiClient.GetAudiobookDetail(int(detail.AudiobookID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+
+		localAudiobook.EntityId = audiobookDetail.ID
+		localAudiobook.Ages = audiobookDetail.Ages
+		localAudiobook.Duration = audiobookDetail.Duration
+		localAudiobook.Name = audiobookDetail.NameFa
+		localAudiobook.Genre = audiobookDetail.Genre
+
+		for _, agent := range audiobookDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
+		localAudiobook.Agents = audiobookDetail.Agents
+
+		publishDate := time.UnixMilli(int64(audiobookDetail.PublishDate))
+		localAudiobook.PublishDate = &publishDate
+		localAudiobook.AudiobookAlbumContentId = &detail.LocalAudiobookParentID
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, audiobookDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookDetail.ImageURL), err)
+		}
+		localAudiobook.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, audiobookDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookDetail.BannerURL), err)
+		}
+		localAudiobook.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		destinationFile, podspaceHash, err := DownloadAudio(apiClient, detail.FileLink)
+		if err != nil {
+			return err
+		}
+
+		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+		}
+		localAudiobook.Link.FileHash = hex.EncodeToString(hash)
+		localAudiobook.Link.PlayLink = podspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localAudiobook)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalPodcast(content SharedModels.ProcessedContentSchema, dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+
+	localPodcast := SharedModels.Podcast{}
+	detail := content.Details.(SharedModels.LocalPodcastSchema)
+	localPodcast.ContentId = content.ID
+	if content.Enable {
+		podcastDetail, err := apiClient.GetPodcastDetail(int(detail.PodcastID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+
+		localPodcast.EntityId = podcastDetail.ID
+		localPodcast.Description = podcastDetail.Description
+		localPodcast.Ages = podcastDetail.Ages
+		localPodcast.Duration = podcastDetail.Duration
+		localPodcast.Name = podcastDetail.NameFa
+		localPodcast.Genre = podcastDetail.Genre
+
+		for _, agent := range podcastDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, podcastDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
+		localPodcast.Agents = podcastDetail.Agents
+
+		publishDate := time.UnixMilli(int64(podcastDetail.PublishDate))
+		localPodcast.PublishDate = &publishDate
+		localPodcast.PodcastAlbumContentId = &detail.LocalPodcastParentID
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, podcastDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, podcastDetail.ImageURL), err)
+		}
+		localPodcast.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, podcastDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, podcastDetail.BannerURL), err)
+		}
+		localPodcast.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		destinationFile, podspaceHash, err := DownloadAudio(apiClient, detail.FileLink)
+		if err != nil {
+			return err
+		}
+
+		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+		}
+		localPodcast.Link.FileHash = hex.EncodeToString(hash)
+		localPodcast.Link.PlayLink = podspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localPodcast)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalAudiobookParent(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+
+	localAudiobookParent := SharedModels.AudiobookAlbum{}
+	detail := content.Details.(SharedModels.LocalAudiobookParentSchema)
+	localAudiobookParent.ContentId = content.ID
+	if content.Enable {
+		audiobookParentDetail, err := apiClient.GetAudiobookParentDetail(int(detail.AudiobookParentID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+
+		localAudiobookParent.Description = audiobookParentDetail.Description
+		publishDate := time.UnixMilli(int64(audiobookParentDetail.PublishDate))
+		localAudiobookParent.PublishDate = &publishDate
+		localAudiobookParent.EntityId = audiobookParentDetail.ID
+		localAudiobookParent.Duration = audiobookParentDetail.Duration
+		localAudiobookParent.Name = audiobookParentDetail.NameFa
+		localAudiobookParent.Genre = audiobookParentDetail.Genre
+
+		for _, agent := range audiobookParentDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookParentDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
+		localAudiobookParent.Agents = audiobookParentDetail.Agents
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, audiobookParentDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookParentDetail.ImageURL), err)
+		}
+		localAudiobookParent.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, audiobookParentDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, audiobookParentDetail.ImageURL), err)
+		}
+		localAudiobookParent.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localAudiobookParent)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create audiobook parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+
+	}
+
+	return nil
+}
+
+func ProcessLocalPodcastParent(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+
+	localPodcastParent := SharedModels.PodcastAlbum{}
+	detail := content.Details.(SharedModels.LocalPodcastParentSchema)
+	localPodcastParent.ContentId = content.ID
+	if content.Enable {
+		podcastParentDetail, err := apiClient.GetPodcastParentDetail(int(detail.PodcastParentID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localPodcastParent.EntityId = podcastParentDetail.ID
+		publishDate := time.UnixMilli(int64(podcastParentDetail.PublishDate))
+		localPodcastParent.PublishDate = &publishDate
+		localPodcastParent.Duration = podcastParentDetail.Duration
+		localPodcastParent.Name = podcastParentDetail.NameFa
+		localPodcastParent.Genre = podcastParentDetail.Genre
+		//TODO: loop over agents and change the image url to image path
+		for _, agent := range podcastParentDetail.Agents {
+			_, bannerUrlAgentPodspaceHash, err := DownloadImage(apiClient, agent.BannerUrl, "")
+			if err != nil {
+				return cstmerr.NewProcessError(
+					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, podcastParentDetail.ImageURL), err)
+			}
+			agent.BannerUrl = bannerUrlAgentPodspaceHash
+		}
+
+		localPodcastParent.Agents = podcastParentDetail.Agents
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, podcastParentDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, podcastParentDetail.ImageURL), err)
+		}
+		localPodcastParent.Image.ImageURL = &imageUrlPodspaceHash
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, podcastParentDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, podcastParentDetail.ImageURL), err)
+		}
+		localPodcastParent.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localPodcastParent)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create podcast parent", err)
+		}
+
+	} else {
+		panic("unimplemented")
+	}
+	return nil
+}
+
+func ProcessLocalSectionContent(content SharedModels.ProcessedContentSchema, dbConnection dbclient.DBClient) error {
+
+	localSectionContent := SharedModels.SectionContent{}
+	detail := content.Details.(SharedModels.LocalSectionContentSchema)
+	localSectionContent.ContentId = content.ID
+	if content.Enable {
+		localSectionContent.EntityContentId = detail.EntityContentID
+		localSectionContent.EntityContentType = detail.EntityContentType
+		localSectionContent.Priority = detail.Priority
+		localSectionContent.SectionContentId = &detail.LocalSectionID
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err := dbConnection.Save(ctx, &localSectionContent)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create section content", err)
+		}
+
+	} else {
+		panic("not implemented")
+	}
+	return nil
+}
+
+func ProcessLocalEpisodeSeason(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+
+	localSeriesEpisode := SharedModels.SeriesEpisode{}
+	detail := content.Details.(SharedModels.LocalSeriesEpisodeSchema)
+	localSeriesEpisode.ContentId = content.ID
+	if content.Enable {
+		seriesEpisodeDetail, err := apiClient.GetSeriesEpisodeDetail(int(detail.EpisodeID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localSeriesEpisode.EntityId = &seriesEpisodeDetail.ID
+		localSeriesEpisode.Index = int64(seriesEpisodeDetail.Index)
+		localSeriesEpisode.Name = seriesEpisodeDetail.Name
+		localSeriesEpisode.NameEn = &seriesEpisodeDetail.NameEn
+		localSeriesEpisode.SeasonContentId = &detail.LocalSeasonID
+
+		fileInformation := SharedModels.FileInformation{}
+
+		checkExtracted, err := CheckExtractedExist(apiClient, detail.FileLink, &fileInformation)
+		if err != nil {
+			return err
+		}
+		if !checkExtracted {
+			err := DownloadZippedVideo(apiClient, detail.FileLink, &fileInformation, "")
+			if err != nil {
+				return err
+			}
+		}
+
+		entries, err := os.ReadDir(fileInformation.DestinationExtracted)
+		if err != nil {
+			return cstmerr.NewProcessError(fmt.Sprintf(cstmerr.PROCESS_FIND_DIRECTORY,
+				fileInformation.DestinationExtracted), err)
+		}
+
+		var destinationFile string
+		var destinationSub string
+		for _, entry := range entries {
+			if entry.IsDir() {
+				destinationSub = entry.Name()
+			}
+		}
+
+		if len(destinationSub) == 0 {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_CREATE_ERROR, nil)
+		}
+
+		masterFile := fmt.Sprintf("%s/master_%s.m3u8", destinationSub, destinationSub)
+		destinationFile = filepath.Join(fileInformation.DestinationExtracted, masterFile)
+
+		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+		}
+		localSeriesEpisode.Link.FileHash = hex.EncodeToString(hash)
+		localSeriesEpisode.Link.PlayLink = filepath.Join(
+			fileInformation.FileNameWithPrefix[0:len(fileInformation.FileNameWithPrefix)-4], masterFile)
+		log.Printf("debug: playlink %s", localSeriesEpisode.Link.PlayLink)
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, seriesEpisodeDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, seriesEpisodeDetail.ImageURL), err)
+		}
+		localSeriesEpisode.Image.ImageURL = &imageUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localSeriesEpisode)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create season", err)
+		}
+
+	} else {
+		panic("not implemented")
+	}
+	return nil
+}
+
+func ProcessLocalSeriesSeason(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localSeriesSeason := SharedModels.SeriesSeason{}
+	detail := content.Details.(SharedModels.LocalSeriesSeasonSchema)
+	localSeriesSeason.ContentId = content.ID
+	if content.Enable {
+		seriesSeasonDetail, err := apiClient.GetSeriesSeasonDetail(int(detail.SeasonID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localSeriesSeason.Index = int64(seriesSeasonDetail.Index)
+		localSeriesSeason.Name = seriesSeasonDetail.Name
+		localSeriesSeason.NameEn = &seriesSeasonDetail.NameEn
+		localSeriesSeason.EntityId = &seriesSeasonDetail.ID
+
+		localSeriesSeason.SeriesContentId = &detail.LocalSeriesID
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localSeriesSeason)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create season", err)
+		}
+
+	} else {
+		panic("not implemented")
+
+	}
+	return nil
+}
+
+func ProcessLocalSeries(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
+	localSeries := SharedModels.Series{}
+	detail := content.Details.(SharedModels.LocalSeriesSchema)
+	localSeries.ContentId = content.ID
+	if content.Enable {
+		seriesDetail, err := apiClient.GetSeriesDetail(int(detail.SeriesID))
+		if err != nil {
+			return cstmerr.NewProcessError(cstmerr.PROCESS_DOWNLOAD_ERROR, err)
+		}
+		localSeries.Ages = &seriesDetail.Ages
+		localSeries.Casts = seriesDetail.Casts
+		localSeries.Company = &seriesDetail.Company
+		localSeries.Description = seriesDetail.Description
+		localSeries.EntityId = &seriesDetail.ID
+
+		localSeries.Genres = seriesDetail.Genres
+		localSeries.ImdbCode = &seriesDetail.IMDBCode
+		localSeries.ImdbRate = seriesDetail.IMDBRate
+		localSeries.NameEn = &seriesDetail.NameEn
+		localSeries.NameFa = seriesDetail.NameFa
+		localSeries.PostId = seriesDetail.PostID
+		localSeries.YearsOfBroadcast = &seriesDetail.YearsOFBroadcast
+
+		_, bannerUrlPodspaceHash, err := DownloadImage(apiClient, seriesDetail.BannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, seriesDetail.BannerURL), err)
+		}
+		localSeries.Image.BannerUrl = &bannerUrlPodspaceHash
+
+		_, imageUrlPodspaceHash, err := DownloadImage(apiClient, seriesDetail.ImageURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, seriesDetail.ImageURL), err)
+		}
+		localSeries.Image.ImageURL = imageUrlPodspaceHash
+
+		_, mobileBannerUrlPodspaceHash, err := DownloadImage(apiClient, seriesDetail.MobileBannerURL, "")
+		if err != nil {
+			return cstmerr.NewProcessError(
+				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, seriesDetail.MobileBannerURL), err)
+		}
+		localSeries.Image.MobileBannerUrl = &mobileBannerUrlPodspaceHash
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
+		err = dbConnection.Save(ctx, &localSeries)
+		if err != nil {
+			return cstmerr.NewProcessError("failed to create slider", err)
+		}
+
+	} else {
+		panic("not implemented")
+
+	}
+	return nil
+}
+
+func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
+	dbConnection dbclient.DBClient, apiClient *ApiClient.APIClient) error {
 
 	localMovie := SharedModels.Movie{}
 	detail := content.Details.(SharedModels.LocalMovieSchema)
@@ -271,15 +1053,24 @@ func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
 		localMovie.Genres = movieDetail.Genres
 		localMovie.ImdbCode = &movieDetail.IMDBCode
 		localMovie.ImdbRate = movieDetail.IMDBRate
-		//TODO: download the video if the extracted content does not exist on fs
-		extractedPath, podspaceHash, err := DownloadZippedVideo(apiClient, detail.FileLink, "")
+
+		fileInformation := SharedModels.FileInformation{}
+
+		checkExtracted, err := CheckExtractedExist(apiClient, detail.FileLink, &fileInformation)
 		if err != nil {
 			return err
 		}
+		if !checkExtracted {
+			err := DownloadZippedVideo(apiClient, detail.FileLink, &fileInformation, "")
+			if err != nil {
+				return err
+			}
+		}
 
-		entries, err := os.ReadDir(extractedPath)
+		entries, err := os.ReadDir(fileInformation.DestinationExtracted)
 		if err != nil {
-			return cstmerr.NewProcessError(fmt.Sprintf(cstmerr.PROCESS_FIND_DIRECTORY, extractedPath), err)
+			return cstmerr.NewProcessError(fmt.Sprintf(cstmerr.PROCESS_FIND_DIRECTORY,
+				fileInformation.DestinationExtracted), err)
 		}
 
 		var destinationFile string
@@ -295,14 +1086,15 @@ func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
 		}
 
 		masterFile := fmt.Sprintf("%s/master_%s.m3u8", destinationSub, destinationSub)
-		destinationFile = filepath.Join(extractedPath, masterFile)
+		destinationFile = filepath.Join(fileInformation.DestinationExtracted, masterFile)
 
 		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
 		if err != nil {
 			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
 		}
 		localMovie.Link.FileHash = hex.EncodeToString(hash)
-		localMovie.Link.PlayLink = filepath.Join(podspaceHash[0:len(podspaceHash)-4], masterFile)
+		localMovie.Link.PlayLink = filepath.Join(
+			fileInformation.FileNameWithPrefix[0:len(fileInformation.FileNameWithPrefix)-4], masterFile)
 		log.Printf("debug: playlink %s", localMovie.Link.PlayLink)
 
 		localMovie.NameEn = &movieDetail.NameEn
@@ -332,12 +1124,16 @@ func ProcessLocalMovie(content SharedModels.ProcessedContentSchema,
 		}
 		localMovie.Image.MobileBannerUrl = &mobileBannerUrlPodspaceHash
 
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
+		defer cancel()
+
 		err = dbConnection.Save(ctx, &localMovie)
 		if err != nil {
 			return cstmerr.NewProcessError("failed to create slider", err)
 		}
 
 	} else {
+		panic("not implemented")
 
 	}
 	return nil
@@ -360,6 +1156,8 @@ func ProcessLocalPoll(content SharedModels.ProcessedContentSchema,
 			return cstmerr.NewProcessError(cstmerr.PROCESS_CREATE_ERROR, err)
 		}
 	} else {
+		panic("not implemented")
+
 		err := dbConnection.Delete(ctx, &localPoll)
 		if err != nil {
 			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
@@ -406,6 +1204,7 @@ func ProcessLocalSection(content SharedModels.ProcessedContentSchema,
 			}
 		}
 	} else {
+		panic("not implemented")
 
 	}
 
@@ -441,6 +1240,8 @@ func ProcessLocalMovieGenre(content SharedModels.ProcessedContentSchema,
 			return cstmerr.NewProcessError("failed to create slider", err)
 		}
 	} else {
+		panic("not implemented")
+
 		//TODO: handle image deletion from filespace
 		err := dbConnection.Delete(ctx, &localMovieGenre)
 		if err != nil {
@@ -470,7 +1271,7 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 			return cstmerr.NewProcessError(
 				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, detail.ImageURL), err)
 		}
-		localSlider.Image.ImageURL = filepath.Join(SLIDER, imageUrlPodspaceHash)
+		localSlider.Links.ImageURL = filepath.Join(SLIDER, imageUrlPodspaceHash)
 
 		if detail.LogoImageURL != nil {
 			_, logoImageUrlPodspaceHash, err := DownloadImage(apiclient, *detail.LogoImageURL, SLIDER)
@@ -479,7 +1280,7 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 					fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, detail.ImageURL), err)
 			}
 			trick := filepath.Join(SLIDER, logoImageUrlPodspaceHash)
-			localSlider.Image.LogoImageUrl = &trick
+			localSlider.Links.LogoImageUrl = &trick
 		}
 
 		_, mediumImageUrlPodspaceHash, err := DownloadImage(apiclient, detail.MediumImageURL, SLIDER)
@@ -488,7 +1289,7 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, detail.ImageURL), err)
 		}
 		trick := filepath.Join(SLIDER, mediumImageUrlPodspaceHash)
-		localSlider.Image.MediumImageUrl = &trick
+		localSlider.Links.MediumImageUrl = &trick
 
 		_, smallImageUrlPodspaceHash, err := DownloadImage(apiclient, detail.SmallImageURL, SLIDER)
 		if err != nil {
@@ -496,9 +1297,32 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 				fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, detail.ImageURL), err)
 		}
 		trick2 := filepath.Join(SLIDER, smallImageUrlPodspaceHash)
-		localSlider.Image.SmallImageUrl = &trick2
+		localSlider.Links.SmallImageUrl = &trick2
 
 		localSlider.Link = detail.Link
+		if detail.LocalContentID != nil {
+			localSlider.EntityId = detail.LocalContentID
+		}
+
+		localSlider.EntityType = detail.EntityType
+
+		if detail.VideoURL != nil {
+			_, podspaceHash, err := DownloadVideo(apiclient, *detail.VideoURL, SLIDER)
+			if err != nil {
+				return err
+			}
+			trick := filepath.Join(SLIDER, podspaceHash)
+			localSlider.Links.VideoUrl = &trick
+		}
+
+		if detail.MobileVideoURL != nil {
+			_, podspaceHash, err := DownloadVideo(apiclient, *detail.MobileVideoURL, SLIDER)
+			if err != nil {
+				return err
+			}
+			trick := filepath.Join(SLIDER, podspaceHash)
+			localSlider.Links.MobileVideoUrl = &trick
+		}
 
 		err = dbConnection.Save(ctx, &localSlider)
 		if err != nil {
@@ -518,6 +1342,8 @@ func ProcessLocalSlider(content SharedModels.ProcessedContentSchema,
 			}
 		}
 	} else {
+		panic("not implemented")
+
 		//TODO: handle assosiation
 		err := dbConnection.Delete(ctx, &localSlider)
 		if err != nil {
@@ -561,6 +1387,8 @@ func ProcessLocalTab(content SharedModels.ProcessedContentSchema,
 			}
 		}
 	} else {
+		panic("not implemented")
+
 		//TODO: handle assosiation
 		err := dbConnection.Delete(ctx, &localTab)
 		if err != nil {
@@ -586,6 +1414,8 @@ func ProcessLocalPage(content SharedModels.ProcessedContentSchema,
 			return cstmerr.NewProcessError("failed to save Local Page", err)
 		}
 	} else {
+		panic("not implemented")
+
 		err := dbConnection.Delete(ctx, &localPage)
 		if err != nil {
 			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
@@ -598,46 +1428,106 @@ func ProcessLocalAdvertisement(
 	content SharedModels.ProcessedContentSchema,
 	dbConnection dbclient.DBClient, apiclient *ApiClient.APIClient) error {
 
+	const ADS = "ADS"
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Connection timeout
 	defer cancel()
 	localAdvertisement := SharedModels.Advertisement{}
-	localAdvertisementLink := SharedModels.AdvertisementLink{}
+	// localAdvertisementLink := SharedModels.AdvertisementLink{}
 	localAdvertisement.ContentId = content.ID
 	if content.Enable {
 		detail := content.Details.(SharedModels.LocalAdvertisementSchema)
-		// Download filelink to destination
-		destinationFile, podspaceHash, err := DownloadVideo(apiclient, detail.FileLink, "ads")
-		if err != nil {
-			return err
+		if detail.AdsType == 1 || detail.AdsType == 3 {
+			if detail.MobileVideoLink != nil {
+				destinationFile, podspaceHash, err := DownloadVideo(apiclient, *detail.MobileVideoLink, ADS)
+				if err != nil {
+					return err
+				}
+				trick := filepath.Join(ADS, podspaceHash)
+				localAdvertisement.Link.MobileVideoLink = &trick
+				hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+				if err != nil {
+					return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+				}
+				trick2 := hex.EncodeToString(hash)
+				localAdvertisement.Link.MobileVideoHash = &trick2
+				trick3 := "mp4"
+				localAdvertisement.Link.MobileVideoLinkType = &trick3
+			}
+			if detail.VideoLink != nil {
+				destinationFile, podspaceHash, err := DownloadVideo(apiclient, *detail.VideoLink, ADS)
+				if err != nil {
+					return err
+				}
+				trick := filepath.Join(ADS, podspaceHash)
+				localAdvertisement.Link.VideoLink = &trick
+				hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
+				if err != nil {
+					return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+				}
+				trick2 := hex.EncodeToString(hash)
+				localAdvertisement.Link.VideoHash = &trick2
+				trick3 := "mp4"
+				localAdvertisement.Link.VideoLinkType = &trick3
+			}
 		}
-		localAdvertisement.SkipDuration = int32(detail.SkipDuration)
-		localAdvertisement.Synced = false
-		localAdvertisementLink.LinkType = "MP4"
-		hash, err := SharedModels.CalculateMD5(destinationFile, 1025)
-		if err != nil {
-			return cstmerr.NewProcessError(cstmerr.PROCESS_HASH_ERROR, err)
+
+		if detail.AdsType == 2 || detail.AdsType == 3 {
+			if detail.Banner != nil {
+				_, bannerDestination, err := DownloadImage(apiclient, *detail.Banner, ADS)
+				if err != nil {
+					return cstmerr.NewProcessError(
+						fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.Banner), err)
+				}
+				trick := filepath.Join(ADS, bannerDestination)
+				localAdvertisement.Link.BannerURL = &trick
+			}
+
+			if detail.MobileBanner != nil {
+				_, mobileBannerDestination, err := DownloadImage(apiclient, *detail.MobileBanner, ADS)
+				if err != nil {
+					return cstmerr.NewProcessError(
+						fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.MobileBanner), err)
+				}
+				trick := filepath.Join(ADS, mobileBannerDestination)
+				localAdvertisement.Link.MobileBannerURL = &trick
+
+			}
+
+			if detail.TabletBanner != nil {
+				_, tabletBannerDestination, err := DownloadImage(apiclient, *detail.TabletBanner, ADS)
+				if err != nil {
+					return cstmerr.NewProcessError(
+						fmt.Sprintf(cstmerr.PROCESS_DOWNLOAD_ERROR, *detail.TabletBanner), err)
+				}
+				trick := filepath.Join(ADS, tabletBannerDestination)
+				localAdvertisement.Link.TabletBannerURL = &trick
+			}
 		}
-		localAdvertisementLink.FileHash = hex.EncodeToString(hash)
-		localAdvertisementLink.PlayLink = filepath.Join("ads", podspaceHash)
-		localAdvertisementLink.OriginalLink = detail.FileLink
-		localAdvertisement.Link = localAdvertisementLink
+
+		if detail.SkipDuration != nil {
+			localAdvertisement.SkipDuration = detail.SkipDuration
+		}
+		localAdvertisement.ViewCount = 0
+
 		dbConnection.Save(ctx, &localAdvertisement)
 	} else {
+		panic("not implemented")
+
 		//TODO: handle file deletion from filespace
-		err := dbConnection.First(ctx, &localAdvertisement)
-		if err != nil {
-			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
-		}
+		// err := dbConnection.First(ctx, &localAdvertisement)
+		// if err != nil {
+		// 	return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
+		// }
 
-		err = DeleteVideo(localAdvertisement.Link.PlayLink)
-		if err != nil {
-			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_FILE, err)
-		}
+		// err = DeleteVideo(localAdvertisement.Link.PlayLink)
+		// if err != nil {
+		// 	return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_FILE, err)
+		// }
 
-		err = dbConnection.Delete(ctx, &localAdvertisement)
-		if err != nil {
-			return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
-		}
+		// err = dbConnection.Delete(ctx, &localAdvertisement)
+		// if err != nil {
+		// 	return cstmerr.NewProcessError(cstmerr.PROCESS_DELETE_ENTITY, err)
+		// }
 
 	}
 	return nil
